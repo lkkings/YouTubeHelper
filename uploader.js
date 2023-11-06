@@ -418,7 +418,7 @@ class YoutubeUploader{
 
 
     }
-    const Process = {
+    Process = {
         SET_VIDEO: async (value)=>{
             const uploadVideo = await this.page.waitForSelector(Constants.INPUT_FILE_VIDEO);
             await uploadVideo.uploadFile(value);
@@ -509,7 +509,7 @@ class YoutubeUploader{
         }
     };
 
-    const Handler = {
+    Handler = {
         "videoFile": this.Process.SET_VIDEO,
         "videoPic": this.Process.SET_PIC,
         "title": this.Process.SET_TITLE,
