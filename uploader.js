@@ -202,13 +202,71 @@ class Constants {
       return '#done-button'
   }
 }
+  class Options{
+
+        constructor(page) {
+            this.page = page
+        }
+
+        async keyInput(strings){
+            const arr = [...strings];
+            for (const s of arr) {
+                await this.page.keyboard.press(s);
+                console.log(s)
+            }
+        }
+
+        async xfind(xpath,timeout){
+            try {
+                return await this.page.waitForXPath(xpath, {timeout: timeout});
+            }catch (e) {
+                return null;
+            }
+
+        }
+
+        async find(selector,timeout){
+            try {
+                return await this.page.waitForSelector(selector, {timeout: timeout});
+            }catch (e) {
+                return null;
+            }
+
+        }
+
+        async clear(selector){
+            const input = await this.page.waitForSelector(selector);
+            await input.click({ clickCount: 3 })
+            await input.type("");
+        }
+
+        async write(xpath, text, replace=true){
+            const input = await this.page.waitForXPath(xpath);
+            if (replace){
+                 await input.click({ clickCount: 3 })
+            }
+            await input.type(text);
+        }
+
+        async waitWrite(selector, text){
+            const ele = await this.page.waitForSelector(selector);
+            let input;
+            do {
+                await ele.type(text);
+                input = await ele.evaluate(ele => {
+                    return ele.value;
+                })
+            }while (input !== text)
+        }
+
+    }
 
 
 class YoutubeUploader{
       // 构造函数
     constructor(page) {
         this.page = page
-        this.options = new YoutubeUploader._Options(page)
+        this.options = new Options(page)
     }
 
 
@@ -358,65 +416,6 @@ class YoutubeUploader{
             return false
         }
 
-
-    }
-
-    static _Options = class{
-
-        constructor(page) {
-            this.page = page
-        }
-
-        async keyInput(strings){
-            const arr = [...strings];
-            for (const s of arr) {
-                await this.page.keyboard.press(s);
-                console.log(s)
-            }
-        }
-
-        async xfind(xpath,timeout){
-            try {
-                return await this.page.waitForXPath(xpath, {timeout: timeout});
-            }catch (e) {
-                return null;
-            }
-
-        }
-
-        async find(selector,timeout){
-            try {
-                return await this.page.waitForSelector(selector, {timeout: timeout});
-            }catch (e) {
-                return null;
-            }
-
-        }
-
-        async clear(selector){
-            const input = await this.page.waitForSelector(selector);
-            await input.click({ clickCount: 3 })
-            await input.type("");
-        }
-
-        async write(xpath, text, replace=true){
-            const input = await this.page.waitForXPath(xpath);
-            if (replace){
-                 await input.click({ clickCount: 3 })
-            }
-            await input.type(text);
-        }
-
-        async waitWrite(selector, text){
-            const ele = await this.page.waitForSelector(selector);
-            let input;
-            do {
-                await ele.type(text);
-                input = await ele.evaluate(ele => {
-                    return ele.value;
-                })
-            }while (input !== text)
-        }
 
     }
     Process = {
