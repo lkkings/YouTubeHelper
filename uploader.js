@@ -202,71 +202,170 @@ class Constants {
       return '#done-button'
   }
 }
-  class Options{
+class Options{
 
-        constructor(page) {
-            this.page = page
+    constructor(page) {
+        this.page = page
+    }
+
+    async keyInput(strings){
+        const arr = [...strings];
+        for (const s of arr) {
+            await this.page.keyboard.press(s);
+            console.log(s)
         }
+    }
 
-        async keyInput(strings){
-            const arr = [...strings];
-            for (const s of arr) {
-                await this.page.keyboard.press(s);
-                console.log(s)
-            }
-        }
-
-        async xfind(xpath,timeout){
-            try {
-                return await this.page.waitForXPath(xpath, {timeout: timeout});
-            }catch (e) {
-                return null;
-            }
-
-        }
-
-        async find(selector,timeout){
-            try {
-                return await this.page.waitForSelector(selector, {timeout: timeout});
-            }catch (e) {
-                return null;
-            }
-
-        }
-
-        async clear(selector){
-            const input = await this.page.waitForSelector(selector);
-            await input.click({ clickCount: 3 })
-            await input.type("");
-        }
-
-        async write(xpath, text, replace=true){
-            const input = await this.page.waitForXPath(xpath);
-            if (replace){
-                 await input.click({ clickCount: 3 })
-            }
-            await input.type(text);
-        }
-
-        async waitWrite(selector, text){
-            const ele = await this.page.waitForSelector(selector);
-            let input;
-            do {
-                await ele.type(text);
-                input = await ele.evaluate(ele => {
-                    return ele.value;
-                })
-            }while (input !== text)
+    async xfind(xpath,timeout){
+        try {
+            return await this.page.waitForXPath(xpath, {timeout: timeout});
+        }catch (e) {
+            return null;
         }
 
     }
 
+    async find(selector,timeout){
+        try {
+            return await this.page.waitForSelector(selector, {timeout: timeout});
+        }catch (e) {
+            return null;
+        }
+
+    }
+
+    async clear(selector){
+        const input = await this.page.waitForSelector(selector);
+        await input.click({ clickCount: 3 })
+        await input.type("");
+    }
+
+    async write(xpath, text, replace=true){
+        const input = await this.page.waitForXPath(xpath);
+        if (replace){
+             await input.click({ clickCount: 3 })
+        }
+        await input.type(text);
+    }
+
+    async waitWrite(selector, text){
+        const ele = await this.page.waitForSelector(selector);
+        let input;
+        do {
+            await ele.type(text);
+            input = await ele.evaluate(ele => {
+                return ele.value;
+            })
+        }while (input !== text)
+    }
+
+}
 
 class YoutubeUploader{
       // 构造函数
     constructor(page) {
         this.page = page
         this.options = new Options(page)
+        this.Process = {
+        SET_VIDEO: async (value)=>{
+            const uploadVideo = await this.page.waitForSelector(Constants.INPUT_FILE_VIDEO);
+            await uploadVideo.uploadFile(value);
+            let flag;
+            do {
+                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,1000);
+                let info = await uploadProgress.evaluate(ele=>ele.textContent);
+                console.log(info);
+                flag = info.includes(Constants.UPLOAD_PROGRESS_DOWN);
+            }while (!flag)
+            console.log("视频上传完毕");
+        },
+        SET_PIC: async (value)=>{
+            try {
+                const uploadPic = await this.options.find(Constants.UPLOAD_PROGRESS,3000);
+                await uploadPic.uploadFile(value)
+                console.log("预览图设置完成");
+            }catch (e) {
+                console.log("预览图设置失败");
+            }
+        },
+        SET_TITLE: async (value)=>{
+            await this.options.write(Constants.TITLE_INPUT_XPATH,value);
+            console.log("标题设置完成");
+        },
+        SET_DESC: async (value)=>{
+            await this.options.write(Constants.DESC_INPUT_XPATH,value);
+            console.log("详情设置完成");
+        },
+        SET_PLAY_LIST: async (value) =>{
+            await this.page.waitForSelector(Constants.PLAY_LIST_DROPDOWN);
+            await this.page.click(Constants.PLAY_LIST_DROPDOWN);
+            await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
+            let item = await this.options.xfind(Constants.PLAY_ITEM_EXITS_XPATH,1000);
+            if (item){
+                await this.page.click(Constants.SEARCH_DELETE);
+                await this.page.click(Constants.CREATE_PLAY_ITEM_BUTTON);
+                await this.page.waitForSelector(Constants.OPEN_CREATE_ITEM_BUTTON);
+                await this.page.click(Constants.OPEN_CREATE_ITEM_BUTTON);
+                await this.options.write(Constants.ITEM_TITLE_INPUT_XPATH,value)
+                await this.page.click(Constants.CREATE_ITEM_BUTTON);
+                await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
+            }else {
+                await this.page.click(Constants.PLAY_LIST_ITEM);
+            }
+            await this.page.click(Constants.PLAY_LIST_DOWN);
+            console.log("播放列表设置完成")
+        },
+        SET_KID: async (value)=>{
+            const flag = value === "no"? Constants.NOT_MADE_FOR_KIDS_LABEL_XPATH:Constants.MADE_FOR_KIDS_LABEL_XPATH;
+            const notMadeForKid = await this.page.waitForXPath(flag);
+            await notMadeForKid.click();
+            await this.page.click(Constants.MORE_BUTTON);
+            console.log("是否儿童设置完成")
+
+        },
+        SET_TAGS: async (value)=>{
+            const input = await this.page.waitForXPath(Constants.TAGS_INPUT_XPATH);
+            await input.type(value.join(","));
+            await this.page.keyboard.press('Enter');
+            const openType = await this.page.waitForSelector(Constants.OPEN_TYPE_BUTTON, {isClickable:true});
+            await openType.click();
+            const typeListBox = await this.page.waitForXPath(Constants.TYPE_LIST_BOX_XPATH);
+            const typeItems = await typeListBox.$x(Constants.TYPE_ITEM_XPATH.replace("{type}","娱乐"));
+            assert.ok(typeItems.length !== 0,"未知类型")
+            await typeItems[0].click();
+            console.log("标签设置完成")
+        },
+        SET_SCHEDULE: async (value)=>{
+            await this.page.click(Constants.NEXT_BUTTON);
+            await this.page.click(Constants.NEXT_BUTTON);
+            await this.page.click(Constants.NEXT_BUTTON);
+            if (value === "now"){
+                const pubBtn = await this.page.waitForXPath(Constants.PUBLIC_BUTTON);
+                await pubBtn.click();
+            }else {
+                const date = value.split(" ");
+                const schBtn = await this.page.waitForXPath(Constants.SCHEDULE_BUTTON_XPATH);
+                await schBtn.click();
+                const opBtn = await this.page.waitForSelector(Constants.SCHEDULE_DATE_TEXTBOX);
+                await opBtn.click();
+                await this.options.write(Constants.SCHEDULE_DATE_INPUT_XPATH, date[0])
+                await this.page.keyboard.press("Enter");
+                await this.options.write(Constants.SCHEDULE_DATE_INPUT2_XPATH, date[1])
+                await this.page.keyboard.press("Enter");
+            }
+            console.log("日程表设置完成")
+        }
+    };
+        this.Handler = {
+            "videoFile": this.Process.SET_VIDEO,
+            "videoPic": this.Process.SET_PIC,
+            "title": this.Process.SET_TITLE,
+            "desc": this.Process.SET_DESC,
+            "playList": this.Process.SET_PLAY_LIST,
+            "isKid": this.Process.SET_KID,
+            "tags": this.Process.SET_TAGS,
+            "schedule": this.Process.SET_SCHEDULE
+        }
     }
 
 
@@ -418,111 +517,9 @@ class YoutubeUploader{
 
 
     }
-    Process = {
-        SET_VIDEO: async (value)=>{
-            const uploadVideo = await this.page.waitForSelector(Constants.INPUT_FILE_VIDEO);
-            await uploadVideo.uploadFile(value);
-            let flag;
-            do {
-                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,1000);
-                let info = await uploadProgress.evaluate(ele=>ele.textContent);
-                console.log(info);
-                flag = info.includes(Constants.UPLOAD_PROGRESS_DOWN);
-            }while (!flag)
-            console.log("视频上传完毕");
-        },
-        SET_PIC: async (value)=>{
-            try {
-                const uploadPic = await this.options.find(Constants.UPLOAD_PROGRESS,3000);
-                await uploadPic.uploadFile(value)
-                console.log("预览图设置完成");
-            }catch (e) {
-                console.log("预览图设置失败");
-            }
-        },
-        SET_TITLE: async (value)=>{
-            await this.options.write(Constants.TITLE_INPUT_XPATH,value);
-            console.log("标题设置完成");
-        },
-        SET_DESC: async (value)=>{
-            await this.options.write(Constants.DESC_INPUT_XPATH,value);
-            console.log("详情设置完成");
-        },
-        SET_PLAY_LIST: async (value) =>{
-            await this.page.waitForSelector(Constants.PLAY_LIST_DROPDOWN);
-            await this.page.click(Constants.PLAY_LIST_DROPDOWN);
-            await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
-            let item = await this.options.xfind(Constants.PLAY_ITEM_EXITS_XPATH,1000);
-            if (item){
-                await this.page.click(Constants.SEARCH_DELETE);
-                await this.page.click(Constants.CREATE_PLAY_ITEM_BUTTON);
-                await this.page.waitForSelector(Constants.OPEN_CREATE_ITEM_BUTTON);
-                await this.page.click(Constants.OPEN_CREATE_ITEM_BUTTON);
-                await this.options.write(Constants.ITEM_TITLE_INPUT_XPATH,value)
-                await this.page.click(Constants.CREATE_ITEM_BUTTON);
-                await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
-            }else {
-                await this.page.click(Constants.PLAY_LIST_ITEM);
-            }
-            await this.page.click(Constants.PLAY_LIST_DOWN);
-            console.log("播放列表设置完成")
-        },
-        SET_KID: async (value)=>{
-            const flag = value === "no"? Constants.NOT_MADE_FOR_KIDS_LABEL_XPATH:Constants.MADE_FOR_KIDS_LABEL_XPATH;
-            const notMadeForKid = await this.page.waitForXPath(flag);
-            await notMadeForKid.click();
-            await this.page.click(Constants.MORE_BUTTON);
-            console.log("是否儿童设置完成")
-
-        },
-        SET_TAGS: async (value)=>{
-            const input = await this.page.waitForXPath(Constants.TAGS_INPUT_XPATH);
-            await input.type(value.join(","));
-            await this.page.keyboard.press('Enter');
-            const openType = await this.page.waitForSelector(Constants.OPEN_TYPE_BUTTON, {isClickable:true});
-            await openType.click();
-            const typeListBox = await this.page.waitForXPath(Constants.TYPE_LIST_BOX_XPATH);
-            const typeItems = await typeListBox.$x(Constants.TYPE_ITEM_XPATH.replace("{type}","娱乐"));
-            assert.ok(typeItems.length !== 0,"未知类型")
-            await typeItems[0].click();
-            console.log("标签设置完成")
-        },
-        SET_SCHEDULE: async (value)=>{
-            await this.page.click(Constants.NEXT_BUTTON);
-            await this.page.click(Constants.NEXT_BUTTON);
-            await this.page.click(Constants.NEXT_BUTTON);
-            if (value === "now"){
-                const pubBtn = await this.page.waitForXPath(Constants.PUBLIC_BUTTON);
-                await pubBtn.click();
-            }else {
-                const date = value.split(" ");
-                const schBtn = await this.page.waitForXPath(Constants.SCHEDULE_BUTTON_XPATH);
-                await schBtn.click();
-                const opBtn = await this.page.waitForSelector(Constants.SCHEDULE_DATE_TEXTBOX);
-                await opBtn.click();
-                await this.options.write(Constants.SCHEDULE_DATE_INPUT_XPATH, date[0])
-                await this.page.keyboard.press("Enter");
-                await this.options.write(Constants.SCHEDULE_DATE_INPUT2_XPATH, date[1])
-                await this.page.keyboard.press("Enter");
-            }
-            console.log("日程表设置完成")
-        }
-    };
-
-    Handler = {
-        "videoFile": this.Process.SET_VIDEO,
-        "videoPic": this.Process.SET_PIC,
-        "title": this.Process.SET_TITLE,
-        "desc": this.Process.SET_DESC,
-        "playList": this.Process.SET_PLAY_LIST,
-        "isKid": this.Process.SET_KID,
-        "tags": this.Process.SET_TAGS,
-        "schedule": this.Process.SET_SCHEDULE
-    }
-
 
 }
- YoutubeUploader.createAsyncInstance({headless: 'new',args: [
+YoutubeUploader.createAsyncInstance({headless: 'new',args: [
 '--disable-web-security','-no-sandbox', '--window-size=1280,960'
 ]})
     .then(async uploader => {
