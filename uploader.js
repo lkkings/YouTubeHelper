@@ -520,7 +520,7 @@ class YoutubeUploader{
 
 }
 YoutubeUploader.createAsyncInstance({headless: 'new',args: [
-'--disable-web-security','-no-sandbox', '--window-size=1280,960'
+'--disable-web-security','-no-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
         const socket = new WebSocket('ws://127.0.0.1:8765');
