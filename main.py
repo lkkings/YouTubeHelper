@@ -1,5 +1,4 @@
-import sys
-import time
+import signal
 
 import websockets
 
@@ -162,14 +161,17 @@ async def downloader_handler(cmd):
     global config
     while not Util.done_event.is_set():
         uid = Util.prompt("请输入用户主页下载链接，回车则默认配置文件,按q则退出")
+        if not uid:
+            profile = Util.Profile(cmd)
+            await profile.get_Profile()
+            continue
         if uid.lower() == "q":
             exit(0)
-        if not uid.startswith('https://') or not uid.startswith('http://'):
+        if not uid.startswith('https://'):
             Util.progress.print('uid 不是一个有效的网络链接')
             continue
-        if uid:
-            config['uid'] = uid
-            cmd.config_dict = config
+        config['uid'] = uid
+        cmd.config_dict = config
         profile = Util.Profile(cmd)
         await profile.get_Profile()
 
@@ -187,6 +189,17 @@ def run(cmd):
     listener = loop.create_task(listener_handler())
     loop.run_until_complete(downloader)
     loop.run_until_complete(listener)
+
+    # 设置中断信号
+    def handle_sigint():
+        Util.done_event.set()
+        Util.close_event.set()
+        uploader.cancel()
+        downloader.cancel()
+        listener.cancel()
+
+    bound_handle_sigint = lambda signum, frame: handle_sigint()
+    signal.signal(signal.SIGINT, bound_handle_sigint)
     loop.run_forever()
 
 

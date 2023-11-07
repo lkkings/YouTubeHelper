@@ -10,7 +10,6 @@ import json
 import shutil
 import time
 import math
-import signal
 import random
 import asyncio
 import logging
@@ -162,14 +161,7 @@ done_event = asyncio.Event()
 
 close_event = asyncio.Event()
 
-bound_handle_sigint = lambda signum, frame: handle_sigint()
 
-signal.signal(signal.SIGINT, bound_handle_sigint)
-
-
-# 设置中断信号
-def handle_sigint():
-    done_event.set()
 
 
 if (platform.system() == 'Windows'):
