@@ -18,7 +18,7 @@ class Config:
             'naming': '{create}_{desc}',
             'cookie': '请扫码登录，cookie会自动保存',
             'cookie1': 'Google账号密码登入，cookie会自动保存',
-            'rule': 'new',
+            'rule': 'now',
             'interval': 'all',
             'limit': 'all',
             'max_connections': 10,

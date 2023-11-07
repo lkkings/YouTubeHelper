@@ -162,14 +162,12 @@ async def downloader_handler(cmd):
     global config
     while not Util.done_event.is_set():
         uid = Util.prompt("请输入用户主页下载链接，回车则默认配置文件,按q则退出")
-        if not uid:
-            pass
-        elif not uid.startswith('https://') or not uid.startswith('http://'):
+        if uid.lower() == "q":
+            exit(0)
+        if not uid.startswith('https://') or not uid.startswith('http://'):
             Util.progress.print('uid 不是一个有效的网络链接')
             continue
-        elif uid.lower() == "q":
-            exit(0)
-        else:
+        if uid:
             config['uid'] = uid
             cmd.config_dict = config
         profile = Util.Profile(cmd)

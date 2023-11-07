@@ -599,7 +599,7 @@ async function connectWebSocket(uploader) {
     console.error('WebSocket 出现错误', error);
   });
 }
-YoutubeUploader.createAsyncInstance({headless: 'new',args: [
+YoutubeUploader.createAsyncInstance({headless: 'new', executablePath: 'google-chrome-stable', args: [
 '--disable-web-security','-no-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
