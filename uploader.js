@@ -271,7 +271,7 @@ class YoutubeUploader{
         },
         SET_PIC: async (value)=>{
             try {
-                const uploadPic = await this.options.find(Constants.UPLOAD_PROGRESS,10000);
+                const uploadPic = await this.options.find(Constants.INPUT_FILE_PIC,10000);
                 await uploadPic.uploadFile(value)
                 console.log("预览图设置完成");
             }catch (e) {
@@ -420,7 +420,7 @@ class YoutubeUploader{
             }
             await this.page.reload();
             await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
-            const expr = await this.options.find(Constants.IS_LOGIN,4000);
+            const expr = await this.options.find(Constants.IS_LOGIN,2000);
             if (expr){
                 this.page.deleteCookie();
             }
@@ -519,7 +519,6 @@ async function connectWebSocket(uploader) {
                 const message = JSON.parse(messageStr);
                 console.log('收到二进制消息，转换为字符串:', message);
                 let res;
-                let timer
                 switch (message['action']) {
                     case 'login':
                         if (message['type'] === 0) {
@@ -570,7 +569,7 @@ async function connectWebSocket(uploader) {
 app.listen(8080, () => {
      console.log(`Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless: false,executablePath: 'google-chrome-stable',timeout: 60000, args: [
+    YoutubeUploader.createAsyncInstance({headless: 'new',executablePath: 'google-chrome-stable', args: [
 '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
