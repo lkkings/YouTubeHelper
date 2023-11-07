@@ -1,3 +1,4 @@
+import sys
 import time
 
 import websockets
@@ -157,7 +158,26 @@ async def listener_handler():
             await Util.upload_down.wait()
 
 
+async def downloader_handler(cmd):
+    global config
+    while not Util.done_event.is_set():
+        uid = Util.prompt("请输入用户主页下载链接，回车则默认配置文件,按q则退出")
+        if not uid:
+            pass
+        elif not uid.startswith('https://') or not uid.startswith('http://'):
+            Util.progress.print('uid 不是一个有效的网络链接')
+            continue
+        elif uid.lower() == "q":
+            exit(0)
+        else:
+            config['uid'] = uid
+            cmd.config_dict = config
+        profile = Util.Profile(cmd)
+        await profile.get_Profile()
+
+
 def run(cmd):
+    init_load()
     loop = Util.asyncio.get_event_loop()
     if not config["uploader"]:
         Util.progress.print("未启动YouTube上传器，仅开启下载模式")
@@ -165,9 +185,7 @@ def run(cmd):
         uploader = websockets.serve(uploader_handler, "0.0.0.0", 8765)
         loop.run_until_complete(uploader)
         Util.progress.print("YouTube上传器等待连接")
-    init_load()
-    profile = Util.Profile(cmd)
-    downloader = loop.create_task(profile.get_Profile())
+    downloader = loop.create_task(downloader_handler(cmd))
     listener = loop.create_task(listener_handler())
     loop.run_until_complete(downloader)
     loop.run_until_complete(listener)
