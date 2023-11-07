@@ -16,7 +16,6 @@ RUN rm google-chrome-stable_current_amd64.deb
 # 复制文件到镜像的app目录下
 COPY uploader.js /app/
 COPY package.json /app/
-
 # 装包
 WORKDIR /app
 # 如果是国内就设置镜像

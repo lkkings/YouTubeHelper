@@ -129,7 +129,6 @@ async def listener_handler():
         await Util.auth_down.wait()
     while not Util.close_event.is_set():
         message = await Util.queue.get()
-        print(message)
         directory_parts = message['videoFile'].split(Util.os.path.sep)
         name = directory_parts[-3] + ":" + directory_parts[-2]
         if DB.uploadMapper.existRecord(message['sec_uid'], name):

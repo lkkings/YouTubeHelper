@@ -1,48 +1,15 @@
 const puppeteer = require('puppeteer-extra');
-const readline = require('readline');
-const fs = require('fs');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
 const assert = require("assert");
 const WebSocket = require('ws');
+const express = require('express');
+const app = express();
+const path = require('path');
+const staticDir = path.join(__dirname, '.'); // 静态资源目录
 
 puppeteer.use(stealthPlugin());
+app.use(express.static(staticDir));
 
-
-// Prompt user for email and password.
-async function prompt(query, hidden = false) {
-    new Promise((resolve, reject) => {
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-        });
-        try {
-            if (hidden) {
-                const stdin = process.openStdin();
-                process.stdin.on('data', (char) => {
-                    char = char + '';
-                    switch (char) {
-                        case '\n':
-                        case '\r':
-                        case '\u0004':
-                            stdin.pause();
-                            break;
-                        default:
-                            process.stdout.clearLine(0);
-                            readline.cursorTo(process.stdout, 0);
-                            process.stdout.write(query + Array(rl.line.length + 1).join('*'));
-                            break;
-                    }
-                });
-            }
-            rl.question(query, (value) => {
-                resolve(value);
-                rl.close();
-            });
-        } catch (err) {
-            reject(err);
-        }
-    });
-}
 async function sleep (time) {
   return new Promise((resolve) => setTimeout(resolve, time));
 }
@@ -544,6 +511,7 @@ async function connectWebSocket(uploader) {
                 const message = JSON.parse(messageStr);
                 console.log('收到二进制消息，转换为字符串:', message);
                 let res;
+                let timer
                 switch (message['action']) {
                     case 'login':
                         if (message['type'] === 0) {
@@ -563,22 +531,14 @@ async function connectWebSocket(uploader) {
                         }
                         break
                     case 'upload':
-                         // message['data'] = {
-                         //        videoFile: 'D:\\Project\\Python\\YouTobeBot\\Download\\post\\小e同学\\2023-06-15 17.32.08_#看海怎么会腻\\2023-06-15 17.32.08_#看海怎么会腻_video.mp4',
-                         //        isKid: 'no',
-                         //        videoPic: 'D:\\Project\\Python\\YouTobeBot\\Download\\post\\小e同学\\2023-06-15 17.32.08_#看海怎么会腻\\2023-06-15 17.32.08_#看海怎么会腻_cover.png',
-                         //        sec_uid: 'MS4wLjABAAAAt7VyKvSkkHz_WufLbS8dKIR5tQwCprWUJATHh49BTRU',
-                         //        name: '小e同学:2023-06-15 17.32.08_#看海怎么会腻',
-                         //        tags: [ '看海怎么会腻' ],
-                         //        title: '',
-                         //        schedule: '1900/01/01 22:00'
-                         // }
                         try{
                             await uploader.upload(message['meta'])
                             const meta = JSON.stringify(message['meta'])
                             ws.send(JSON.stringify({action:'upload',meta: meta}))
                         }catch (e) {
+                            console.log(e)
                             ws.send(JSON.stringify({action:'error',type: 3,message: e}))
+                            await uploader.page.screenshot({ path: 'error.png' })
                         }
                   }
         });
@@ -599,12 +559,17 @@ async function connectWebSocket(uploader) {
     console.error('WebSocket 出现错误', error);
   });
 }
-YoutubeUploader.createAsyncInstance({headless: 'new', executablePath: 'google-chrome-stable', args: [
+app.listen(8080, () => {
+     console.log(`Server is running on port 8080`);
+    YoutubeUploader.createAsyncInstance({headless: 'new', executablePath: 'google-chrome-stable', args: [
 '--disable-web-security','-no-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
+         //使用监控
+        setInterval(async ()=>await uploader.page.screenshot({ path: 'screenshot.png' }),1000)
         await connectWebSocket(uploader);
     })
+});
 
 
 

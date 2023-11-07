@@ -196,11 +196,7 @@ class Download:
             base_path = aweme['path']
             # 创建子目录名称
             subdir_name = await format_file_name(aweme, self.config['naming'])
-            # 如果folderize配置设置为'yes'，则将作品单独保存为一个文件夹。
-            if self.config['folderize'].lower() == 'yes':
-                desc_path = Util.os.path.join(base_path, subdir_name)
-            else:
-                desc_path = base_path  # 直接使用基础路径，不创建子目录
+            desc_path = Util.os.path.join(base_path, subdir_name)
             # 确保子目录存在，如果不存在，os.makedirs会自动创建
             Util.os.makedirs(desc_path, exist_ok=True)
 
