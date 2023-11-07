@@ -325,7 +325,7 @@ class YoutubeUploader{
 
         },
         SET_TAGS: async (value)=>{
-            await this.options.x(Constants.TAGS_INPUT_XPATH,value.join(","))
+            await this.options.xwrite(Constants.TAGS_INPUT_XPATH,value.join(","))
             await this.page.keyboard.press('Enter');
             await this.options.click(Constants.OPEN_TYPE_BUTTON)
             const typeListBox = await this.page.waitForXPath(Constants.TYPE_LIST_BOX_XPATH);
@@ -567,7 +567,7 @@ async function connectWebSocket(uploader) {
 app.listen(8080, () => {
      console.log(`Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless: 'new',executablePath: 'google-chrome-stable', args: [
+    YoutubeUploader.createAsyncInstance({headless: 'new', executablePath: 'google-chrome-stable',args: [
 '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
