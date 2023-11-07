@@ -19,6 +19,10 @@ class Constants {
       return 'cookies.json'
   }
 
+  static get USER_WAITING(){
+      return 2000
+  }
+
   static get UPLOAD_PROGRESS_DOWN(){
       return '已完成';
   }
@@ -152,7 +156,7 @@ class Constants {
       return '#dialog > div > ytcp-animatable.button-area.metadata-fade-in-section.style-scope.ytcp-uploads-dialog > div > div.left-button-area.style-scope.ytcp-uploads-dialog > ytcp-video-upload-progress > span'
   }
 
-   static get PUBLIC_BUTTON(){
+   static get PUBLIC_BUTTON_XPATH(){
       return '/html/body/ytcp-uploads-dialog/tp-yt-paper-dialog/div/ytcp-animatable[1]/ytcp-uploads-review/div[2]/div[1]/ytcp-video-visibility-select/div[2]/tp-yt-paper-radio-group/tp-yt-paper-radio-button[3]/div[1]'
   }
 
@@ -207,6 +211,18 @@ class Options{
         }
 
     }
+    async xclick(xpath){
+        const ele = await this.page.waitForXPath(xpath,{ visible: true, clickable: true });
+        await ele.click();
+        await sleep(Constants.USER_WAITING)
+    }
+
+
+    async click(selector){
+        await this.page.waitForSelector(selector,{ visible: true, clickable: true });
+        await this.page.click(selector)
+        await sleep(Constants.USER_WAITING)
+    }
 
     async clear(selector){
         const input = await this.page.waitForSelector(selector);
@@ -255,7 +271,7 @@ class YoutubeUploader{
         },
         SET_PIC: async (value)=>{
             try {
-                const uploadPic = await this.options.find(Constants.UPLOAD_PROGRESS,3000);
+                const uploadPic = await this.options.find(Constants.UPLOAD_PROGRESS,10000);
                 await uploadPic.uploadFile(value)
                 console.log("预览图设置完成");
             }catch (e) {
@@ -271,38 +287,33 @@ class YoutubeUploader{
             console.log("详情设置完成");
         },
         SET_PLAY_LIST: async (value) =>{
-            await this.page.waitForSelector(Constants.PLAY_LIST_DROPDOWN);
-            await this.page.click(Constants.PLAY_LIST_DROPDOWN);
+            await this.options.click(Constants.PLAY_LIST_DROPDOWN)
             await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
             let item = await this.options.xfind(Constants.PLAY_ITEM_EXITS_XPATH,1000);
             if (item){
-                await this.page.click(Constants.SEARCH_DELETE);
-                await this.page.click(Constants.CREATE_PLAY_ITEM_BUTTON);
-                await this.page.waitForSelector(Constants.OPEN_CREATE_ITEM_BUTTON);
-                await this.page.click(Constants.OPEN_CREATE_ITEM_BUTTON);
+                await this.options.click(Constants.SEARCH_DELETE)
+                await this.options.click(Constants.CREATE_PLAY_ITEM_BUTTON);
+                await this.options.click(Constants.OPEN_CREATE_ITEM_BUTTON);
                 await this.options.write(Constants.ITEM_TITLE_INPUT_XPATH,value)
-                await this.page.click(Constants.CREATE_ITEM_BUTTON);
+                await this.options.click(Constants.CREATE_ITEM_BUTTON);
                 await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
             }else {
-                await this.page.click(Constants.PLAY_LIST_ITEM);
+                await this.options.click(Constants.PLAY_LIST_ITEM);
             }
-            await this.page.click(Constants.PLAY_LIST_DOWN);
+            await this.options.click(Constants.PLAY_LIST_DOWN);
             console.log("播放列表设置完成")
         },
         SET_KID: async (value)=>{
             const flag = value === "no"? Constants.NOT_MADE_FOR_KIDS_LABEL_XPATH:Constants.MADE_FOR_KIDS_LABEL_XPATH;
-            const notMadeForKid = await this.page.waitForXPath(flag);
-            await notMadeForKid.click();
-            await this.page.click(Constants.MORE_BUTTON);
+            await this.options.xfind(flag)
+            await this.options.click(Constants.MORE_BUTTON);
             console.log("是否儿童设置完成")
 
         },
         SET_TAGS: async (value)=>{
-            const input = await this.page.waitForXPath(Constants.TAGS_INPUT_XPATH);
-            await input.type(value.join(","));
+            await this.options.write(Constants.TAGS_INPUT_XPATH,value.join(","))
             await this.page.keyboard.press('Enter');
-            const openType = await this.page.waitForSelector(Constants.OPEN_TYPE_BUTTON, {isClickable:true});
-            await openType.click();
+            await this.options.click(Constants.OPEN_TYPE_BUTTON)
             const typeListBox = await this.page.waitForXPath(Constants.TYPE_LIST_BOX_XPATH);
             const typeItems = await typeListBox.$x(Constants.TYPE_ITEM_XPATH.replace("{type}","娱乐"));
             assert.ok(typeItems.length !== 0,"未知类型")
@@ -310,18 +321,15 @@ class YoutubeUploader{
             console.log("标签设置完成")
         },
         SET_SCHEDULE: async (value)=>{
-            await this.page.click(Constants.NEXT_BUTTON);
-            await this.page.click(Constants.NEXT_BUTTON);
-            await this.page.click(Constants.NEXT_BUTTON);
+            await this.options.click(Constants.NEXT_BUTTON);
+            await this.options.click(Constants.NEXT_BUTTON);
+            await this.options.click(Constants.NEXT_BUTTON);
             if (value === "now"){
-                const pubBtn = await this.page.waitForXPath(Constants.PUBLIC_BUTTON);
-                await pubBtn.click();
+                await this.options.xclick(Constants.PUBLIC_BUTTON_XPATH)
             }else {
                 const date = value.split(" ");
-                const schBtn = await this.page.waitForXPath(Constants.SCHEDULE_BUTTON_XPATH);
-                await schBtn.click();
-                const opBtn = await this.page.waitForSelector(Constants.SCHEDULE_DATE_TEXTBOX);
-                await opBtn.click();
+                await this.options.xclick(Constants.SCHEDULE_BUTTON_XPATH)
+                await this.options.xclick(Constants.SCHEDULE_DATE_TEXTBOX)
                 await this.options.write(Constants.SCHEDULE_DATE_INPUT_XPATH, date[0])
                 await this.page.keyboard.press("Enter");
                 await this.options.write(Constants.SCHEDULE_DATE_INPUT2_XPATH, date[1])
@@ -562,7 +570,7 @@ async function connectWebSocket(uploader) {
 app.listen(8080, () => {
      console.log(`Server is running on port 8080`);
     YoutubeUploader.createAsyncInstance({headless: 'new', executablePath: 'google-chrome-stable', args: [
-'--disable-web-security','-no-sandbox', '--window-size=1280,960','--lang=zh-CN'
+'--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
          //使用监控
