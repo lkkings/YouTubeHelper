@@ -142,14 +142,13 @@ async def listener_handler():
             , 'sec_uid': message['sec_uid'], 'name': name}
         meta = work_processing(meta, message)
         rule = config['rule']
-        if rule != 'now':
-            cur_weekday = Util.get_cur_weekday()
-            target_time = rule.get(cur_weekday)
-            if target_time:
-                date = Util.get_cur_near_time(target_time)
-                meta['schedule'] = f'{str(date)} {target_time}'
-            else:
-                meta['schedule'] = 'now'
+        cur_weekday = Util.get_cur_weekday()
+        target_time = rule.get(cur_weekday)
+        if target_time:
+            date = Util.get_cur_near_time(target_time)
+            meta['schedule'] = f'{str(date)} {target_time}'
+        else:
+            meta['schedule'] = 'now'
         await uploader.send(Util.json.dumps({"action": "upload", "meta": meta}))
         # 等待上一个视频上传完
         async with Util.upload_down:

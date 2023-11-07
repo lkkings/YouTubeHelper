@@ -305,7 +305,7 @@ class YoutubeUploader{
         },
         SET_KID: async (value)=>{
             const flag = value === "no"? Constants.NOT_MADE_FOR_KIDS_LABEL_XPATH:Constants.MADE_FOR_KIDS_LABEL_XPATH;
-            await this.options.xfind(flag)
+            await this.options.xclick(flag)
             await this.options.click(Constants.MORE_BUTTON);
             console.log("是否儿童设置完成")
 
@@ -420,7 +420,7 @@ class YoutubeUploader{
             }
             await this.page.reload();
             await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
-            const expr = await this.options.find(Constants.IS_LOGIN,2000);
+            const expr = await this.options.find(Constants.IS_LOGIN,4000);
             if (expr){
                 this.page.deleteCookie();
             }
@@ -494,7 +494,7 @@ class YoutubeUploader{
                     await this.Handler[key](meta[key]);
                 }
             }
-            await this.page.click(Constants.DONE_BUTTON);
+            await this.options.click(Constants.DONE_BUTTON);
             console.log("视频发布/预发布完成");
         }catch (e) {
             throw e;
@@ -569,7 +569,8 @@ async function connectWebSocket(uploader) {
 }
 app.listen(8080, () => {
      console.log(`Server is running on port 8080`);
-    YoutubeUploader.createAsyncInstance({headless: 'new', executablePath: 'google-chrome-stable', args: [
+     // executablePath: 'google-chrome-stable'
+    YoutubeUploader.createAsyncInstance({headless: false,executablePath: 'google-chrome-stable',timeout: 60000, args: [
 '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
