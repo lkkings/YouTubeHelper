@@ -203,6 +203,8 @@ class Options{
 
     }
 
+
+
     async find(selector,timeout){
         try {
             return await this.page.waitForSelector(selector, {timeout: timeout});
@@ -230,13 +232,25 @@ class Options{
         await input.type("");
     }
 
-    async write(xpath, text, replace=true){
+    async xwrite(xpath, text, replace=true){
         const input = await this.page.waitForXPath(xpath);
         if (replace){
              await input.click({ clickCount: 3 })
         }
         await input.type(text);
     }
+
+    async write(selector, text, replace=true){
+        const input = await this.page.waitForSelector(selector);
+        if (replace){
+             await input.click({ clickCount: 3 })
+        }
+        await input.type(text);
+    }
+
+
+
+
 
     async waitWrite(selector, text){
         const ele = await this.page.waitForSelector(selector);
@@ -262,7 +276,7 @@ class YoutubeUploader{
             await uploadVideo.uploadFile(value);
             let flag;
             do {
-                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,1000);
+                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,Constants.USER_WAITING*0.5);
                 let info = await uploadProgress.evaluate(ele=>ele.textContent);
                 console.log(info);
                 flag = info.includes(Constants.UPLOAD_PROGRESS_DOWN);
@@ -271,7 +285,7 @@ class YoutubeUploader{
         },
         SET_PIC: async (value)=>{
             try {
-                const uploadPic = await this.options.find(Constants.INPUT_FILE_PIC,10000);
+                const uploadPic = await this.options.find(Constants.INPUT_FILE_PIC,5 * Constants.INPUT_FILE_PIC);
                 await uploadPic.uploadFile(value)
                 console.log("预览图设置完成");
             }catch (e) {
@@ -279,22 +293,22 @@ class YoutubeUploader{
             }
         },
         SET_TITLE: async (value)=>{
-            await this.options.write(Constants.TITLE_INPUT_XPATH,value);
+            await this.options.xwrite(Constants.TITLE_INPUT_XPATH,value);
             console.log("标题设置完成");
         },
         SET_DESC: async (value)=>{
-            await this.options.write(Constants.DESC_INPUT_XPATH,value);
+            await this.options.xwrite(Constants.DESC_INPUT_XPATH,value);
             console.log("详情设置完成");
         },
         SET_PLAY_LIST: async (value) =>{
             await this.options.click(Constants.PLAY_LIST_DROPDOWN)
             await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
-            let item = await this.options.xfind(Constants.PLAY_ITEM_EXITS_XPATH,1000);
+            let item = await this.options.xfind(Constants.PLAY_ITEM_EXITS_XPATH,Constants.USER_WAITING);
             if (item){
                 await this.options.click(Constants.SEARCH_DELETE)
                 await this.options.click(Constants.CREATE_PLAY_ITEM_BUTTON);
                 await this.options.click(Constants.OPEN_CREATE_ITEM_BUTTON);
-                await this.options.write(Constants.ITEM_TITLE_INPUT_XPATH,value)
+                await this.options.xwrite(Constants.ITEM_TITLE_INPUT_XPATH,value)
                 await this.options.click(Constants.CREATE_ITEM_BUTTON);
                 await this.options.waitWrite(Constants.PLAY_LIST_SEARCH, value);
             }else {
@@ -311,7 +325,7 @@ class YoutubeUploader{
 
         },
         SET_TAGS: async (value)=>{
-            await this.options.write(Constants.TAGS_INPUT_XPATH,value.join(","))
+            await this.options.x(Constants.TAGS_INPUT_XPATH,value.join(","))
             await this.page.keyboard.press('Enter');
             await this.options.click(Constants.OPEN_TYPE_BUTTON)
             const typeListBox = await this.page.waitForXPath(Constants.TYPE_LIST_BOX_XPATH);
@@ -330,9 +344,9 @@ class YoutubeUploader{
                 const date = value.split(" ");
                 await this.options.xclick(Constants.SCHEDULE_BUTTON_XPATH)
                 await this.options.xclick(Constants.SCHEDULE_DATE_TEXTBOX)
-                await this.options.write(Constants.SCHEDULE_DATE_INPUT_XPATH, date[0])
+                await this.options.xwrite(Constants.SCHEDULE_DATE_INPUT_XPATH, date[0])
                 await this.page.keyboard.press("Enter");
-                await this.options.write(Constants.SCHEDULE_DATE_INPUT2_XPATH, date[1])
+                await this.options.xwrite(Constants.SCHEDULE_DATE_INPUT2_XPATH, date[1])
                 await this.page.keyboard.press("Enter");
             }
             console.log("日程表设置完成")
@@ -420,7 +434,7 @@ class YoutubeUploader{
             }
             await this.page.reload();
             await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
-            const expr = await this.options.find(Constants.IS_LOGIN,2000);
+            const expr = await this.options.find(Constants.IS_LOGIN,2.5 * Constants.USER_WAITING);
             if (expr){
                 this.page.deleteCookie();
             }
@@ -430,30 +444,17 @@ class YoutubeUploader{
         }
     }
 
-    async screenshot(ele){
-        const imageBoundingBox = await ele.boundingBox();
-        // 使用 page.screenshot 捕获指定区域的截图
-        await this.page.screenshot({
-            path: 'captcha.png',
-            clip: {
-                x: imageBoundingBox.x,
-                y: imageBoundingBox.y,
-                width: imageBoundingBox.width,
-                height: imageBoundingBox.height
-            }
-        });
-    }
 
     async secLogin(){
-        const alreayLoginAccount = await this.options.xfind(Constants.ALREAY_LOGIN_XPATH,5000);
+        const alreayLoginAccount = await this.options.xfind(Constants.ALREAY_LOGIN_XPATH,2.5 * Constants.USER_WAITING);
         if (alreayLoginAccount){
-            await sleep(3000);
+            await sleep(Constants.USER_WAITING);
             await alreayLoginAccount.click();
             return true
         }
-        const alreayLogin2Account = await this.options.xfind(Constants.ALREAY_LOGIN2_XPATH,5000);
+        const alreayLogin2Account = await this.options.xfind(Constants.ALREAY_LOGIN2_XPATH,2.5 * Constants.USER_WAITING);
         if (alreayLogin2Account){
-            await sleep(3000);
+            await sleep(Constants.USER_WAITING);
             await alreayLogin2Account.click();
             return true
         }
@@ -464,20 +465,18 @@ class YoutubeUploader{
         let badInput
         const  sec = await this.secLogin()
         if (!sec){
-            const accountInput = await this.page.waitForSelector(Constants.GMAIL_ACCOUNT_INPUT);
-            await accountInput.type(account);
+            await this.options.write(Constants.GMAIL_ACCOUNT_INPUT,account,false)
             await this.page.keyboard.press('Enter');
-            badInput = await this.options.find(Constants.GMAIL_ACCOUNT_ERROR,3000);
+            badInput = await this.options.find(Constants.GMAIL_ACCOUNT_ERROR,2.5 * Constants.USER_WAITING);
             if (badInput) {
                 console.log('邮箱错误');
                 return false
             }
         }
         await sleep(3000);
-        const passInput = await this.page.waitForSelector(Constants.GMAIL_PASS_INPUT);
-        await passInput.type(password);
+        await this.options.write(Constants.GMAIL_PASS_INPUT,password,false)
         await this.page.keyboard.press('Enter');
-        badInput = await this.options.find(Constants.GMAIL_PASS_ERROR,3000);
+        badInput = await this.options.find(Constants.GMAIL_PASS_ERROR,2.5 * Constants.USER_WAITING);
         if (badInput) {
             console.log('密码错误');
             return false
@@ -545,7 +544,6 @@ async function connectWebSocket(uploader) {
                         }catch (e) {
                             console.log(e)
                             ws.send(JSON.stringify({action:'error',type: 3,message: e}))
-                            await uploader.page.screenshot({ path: 'error.png' })
                         }
                   }
         });
@@ -574,7 +572,7 @@ app.listen(8080, () => {
 ]})
     .then(async uploader => {
          //使用监控
-        setInterval(async ()=>await uploader.page.screenshot({ path: 'screenshot.png' }),1000)
+        setInterval(async ()=>await uploader.page.screenshot({ path: 'screenshot.png' }),3000)
         await connectWebSocket(uploader);
     })
 });
