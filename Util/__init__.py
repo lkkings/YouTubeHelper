@@ -69,7 +69,8 @@ log = Log()
 
 queue = asyncio.Queue()
 
-condition = asyncio.Condition()
+upload_down = asyncio.Condition()
+auth_down = asyncio.Condition()
 
 def prompt(text):
     prompt_style = "bold cyan on black"
@@ -158,10 +159,6 @@ progress = Progress(
 )
 
 done_event = asyncio.Event()
-
-connect_event = asyncio.Event()
-
-login_event = asyncio.Event()
 
 close_event = asyncio.Event()
 

@@ -59,6 +59,13 @@ class Constants {
   static get IS_LOGIN(){
       return '#headingText';
   }
+
+  static get ALREAY_LOGIN_XPATH(){
+      return '/html/body/div[1]/div[1]/div[2]/div/div[2]/div/div/div[2]/div/div[1]/div/form/span/section/div/div/div/div/ul/li[1]/div/div[1]/div/div[3]'
+  }
+  static get ALREAY_LOGIN2_XPATH(){
+      return 'const alreayLoginAccount = await this.options.xfind(Constants.ALREAY_LOGIN_XPATH,5000);'
+  }
   static get GMAIL_URL(){
     return 'https://accounts.google.com'
   }
@@ -377,6 +384,10 @@ class YoutubeUploader{
     static async asyncInitialization(options){
         const browser = await puppeteer.launch(options);
         const page =  await browser.newPage();
+        page.on('dialog', async (dialog) => {
+            console.log(`捕获到对话框消息: ${dialog.message()}`);
+            await dialog.dismiss(); // 关闭对话框
+        });
         await YoutubeUploader.__disguise(page);
         return page
     }
@@ -426,39 +437,24 @@ class YoutubeUploader{
     }
 
     async trySetCookie(cookiesStr){
+        if (cookiesStr === "")return false;
         try {
             const cookies = JSON.parse(cookiesStr);
-          for (const cookie of cookies) {
-              await this.page.setCookie(cookie);
-          }
-          await this.page.reload();
-          await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
-          const expr = await this.options.find(Constants.IS_LOGIN,1000);
-          if (expr){
-              this.page.deleteCookie();
-          }
-          return expr == null;
+            for (const cookie of cookies) {
+                await this.page.setCookie(cookie);
+            }
+            await this.page.reload();
+            await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
+            const expr = await this.options.find(Constants.IS_LOGIN,2000);
+            if (expr){
+                this.page.deleteCookie();
+            }
+            return expr == null;
         }catch (e) {
             return false;
         }
     }
 
-    // async isLogin(){
-    //     if (fs.existsSync(Constants.COOKIES)){
-    //         const cookiesString = fs.readFileSync(Constants.COOKIES, 'utf8');
-    //         const cookies = JSON.parse(cookiesString);
-    //         await this.page.reload();
-    //         await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
-    //         const expr = await this.options.find(Constants.IS_LOGIN,1000);
-    //         if (expr){
-    //             console.log("账号过期");
-    //             fs.unlinkSync(Constants.COOKIES);
-    //             this.page.deleteCookie();
-    //         }
-    //         return expr == null;
-    //     }
-    //     return false;
-    // }
     async screenshot(ele){
         const imageBoundingBox = await ele.boundingBox();
         // 使用 page.screenshot 捕获指定区域的截图
@@ -472,15 +468,35 @@ class YoutubeUploader{
             }
         });
     }
+
+    async secLogin(){
+        const alreayLoginAccount = await this.options.xfind(Constants.ALREAY_LOGIN_XPATH,5000);
+        if (alreayLoginAccount){
+            await sleep(3000);
+            await alreayLoginAccount.click();
+            return true
+        }
+        const alreayLogin2Account = await this.options.xfind(Constants.ALREAY_LOGIN2_XPATH,5000);
+        if (alreayLogin2Account){
+            await sleep(3000);
+            await alreayLogin2Account.click();
+            return true
+        }
+         return false
+    }
     async login(account, password){
         await this.page.goto(Constants.GMAIL_URL);
-        const accountInput = await this.page.waitForSelector(Constants.GMAIL_ACCOUNT_INPUT);
-        await accountInput.type(account);
-        await this.page.keyboard.press('Enter');
-        let badInput = await this.options.find(Constants.GMAIL_ACCOUNT_ERROR,3000);
-        if (badInput) {
-            console.log('邮箱错误');
-            return false
+        let badInput
+        const  sec = await this.secLogin()
+        if (!sec){
+            const accountInput = await this.page.waitForSelector(Constants.GMAIL_ACCOUNT_INPUT);
+            await accountInput.type(account);
+            await this.page.keyboard.press('Enter');
+            badInput = await this.options.find(Constants.GMAIL_ACCOUNT_ERROR,3000);
+            if (badInput) {
+                console.log('邮箱错误');
+                return false
+            }
         }
         await sleep(3000);
         const passInput = await this.page.waitForSelector(Constants.GMAIL_PASS_INPUT);
@@ -494,69 +510,59 @@ class YoutubeUploader{
         return true
     }
 
-    async __upload(meta){
-        await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
-        const keys = Object.keys(this.Handler);
-        for (const key of keys) {
-            if (meta[key]){
-                await this.Handler[key](meta[key]);
-            }
-        }
-        await this.page.click(Constants.DONE_BUTTON);
-        console.log("视频发布/预发布完成")
-    }
-
     async upload(meta){
         try {
-            await this.__upload(meta);
-            return true
+            await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
+            const keys = Object.keys(this.Handler);
+            for (const key of keys) {
+                if (meta[key]){
+                    await this.Handler[key](meta[key]);
+                }
+            }
+            await this.page.click(Constants.DONE_BUTTON);
+            console.log("视频发布/预发布完成");
         }catch (e) {
-            console.log(e)
-            return false
+            throw e;
         }
-
-
     }
-
 }
-YoutubeUploader.createAsyncInstance({headless: 'new',args: [
-'--disable-web-security','-no-sandbox', '--window-size=1280,960','--lang=zh-CN'
-]})
-    .then(async uploader => {
-        const socket = new WebSocket('ws://127.0.0.1:8765');
-        socket.on('open', () => {
-            console.log('WebSocket 连接已打开');
-        });
-        socket.on('message', async (data) => {
-            if (typeof data === 'string') {
-                // 如果消息是字符串，直接处理
-                console.log('收到字符串消息:', data);
-            } else if (data instanceof Buffer) {
-                // 如果消息是二进制数据，将其转换为字符串
+async function connectWebSocket(uploader) {
+    let  ws  ;
+  try {
+       ws = new WebSocket('ws://127.0.0.1:8765');
+  }catch (e) {
+          await sleep(3000);
+        await connectWebSocket(uploader);
+        return
+  }
+  ws.on('open', () => {
+    console.log('WebSocket 连接已建立');
+  });
+  ws.on('message', async (data) => {
+                // 二进制数据，将其转换为字符串
                 const messageStr = data.toString('utf8');
                 const message = JSON.parse(messageStr);
                 console.log('收到二进制消息，转换为字符串:', message);
                 let res;
                 switch (message['action']) {
-                    case 'cookie':
-                        res = await uploader.trySetCookie(message['data'])
-                        if (!res){
-                            console.log('cookie设置失败')
-                            socket.send(JSON.stringify({action:'error', type:1}));
+                    case 'login':
+                        if (message['type'] === 0) {
+                            // cookies登入
+                            res = await uploader.trySetCookie(message['cookies']);
+                            const data = res?{action:'login'}:{action:'error',type:1,message:'cookie异常或过期，请重新登入'};
+                            ws.send(JSON.stringify(data));
                         }else {
-                             socket.send(JSON.stringify({action:'login',cookies:message['data']}));
+                            // 账号密码登入
+                            res = await uploader.login(message['account'],message['password'])
+                            if(res){
+                                const cookies = await uploader.page.cookies();
+                                ws.send(JSON.stringify({action:'login', cookies:JSON.stringify(cookies)}));
+                            }else {
+                                ws.send(JSON.stringify({action:'error', type:2,message:'账号或密码错误，请重新输入'}));
+                            }
                         }
                         break
-                  case 'login':
-                        res = await uploader.login(message['account'],message['password'])
-                        if (!res){
-                            socket.send(JSON.stringify({action:'error', type:1}));
-                        }else {
-                            const cookies = await uploader.page.cookies();
-                            socket.send(JSON.stringify({action:'login', cookies:JSON.stringify(cookies)}));
-                        }
-                        break
-                    case 'meta':
+                    case 'upload':
                          // message['data'] = {
                          //        videoFile: 'D:\\Project\\Python\\YouTobeBot\\Download\\post\\小e同学\\2023-06-15 17.32.08_#看海怎么会腻\\2023-06-15 17.32.08_#看海怎么会腻_video.mp4',
                          //        isKid: 'no',
@@ -567,32 +573,39 @@ YoutubeUploader.createAsyncInstance({headless: 'new',args: [
                          //        title: '',
                          //        schedule: '1900/01/01 22:00'
                          // }
-
-                        res = await uploader.upload(message['data'])
-                        if (res){
-                            socket.send(JSON.stringify({action:'ok',data: message['data']}))
+                        try{
+                            await uploader.upload(message['meta'])
+                            const meta = JSON.stringify(message['meta'])
+                            ws.send(JSON.stringify({action:'upload',meta: meta}))
+                        }catch (e) {
+                            ws.send(JSON.stringify({action:'error',type: 3,message: e}))
                         }
                   }
-              } else {
-                console.log('收到未知消息类型:', data);
-              }
         });
-        socket.on('close', (code, reason) => {
-          if (code === 1000) {
-            console.log('WebSocket 连接已正常关闭');
-          } else {
-            console.error('WebSocket 连接意外关闭');
-          }
-          console.log('关闭代码:', code);
-          console.log('关闭原因:', reason);
-        });
-        socket.on('error', (error) => {
-          console.error('WebSocket 错误:', error);
-        });
+
+  ws.on('close', async (code, reason) => {
+      console.log('关闭代码:', code);
+      console.log('关闭原因:', reason.toString('utf8'));
+      if (code === 1000) {
+            console.log('WebSocket 连接正常关闭');
+        } else {
+          console.error('WebSocket 连接关闭，将尝试重新连接');
+          await sleep(3000);
+        await connectWebSocket(uploader);
+    }
+  });
+
+  ws.on('error',async (error) => {
+    console.error('WebSocket 出现错误', error);
+  });
+}
+YoutubeUploader.createAsyncInstance({headless: 'new',args: [
+'--disable-web-security','-no-sandbox', '--window-size=1280,960','--lang=zh-CN'
+]})
+    .then(async uploader => {
+        await connectWebSocket(uploader);
     })
-    .catch(error => {
-        console.error(error);
-    });
+
 
 
 

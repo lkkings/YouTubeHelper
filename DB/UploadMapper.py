@@ -38,15 +38,23 @@ class UploadMapper:
 
     def addRecord(self, sec_user_id: str, name: str) -> None:
         """
-        添加昵称映射
+        添加上传记录
 
         Args:
             :param sec_user_id:
             :param name:
         """
         c = self.conn.cursor()
-        c.execute('INSERT INTO upload_record VALUES (?, ?)', (sec_user_id, name))
+        c.execute('INSERT INTO upload_record (sec_user_id,name) VALUES (?, ?)', (sec_user_id, name))
         self.conn.commit()
+
+    def allRecord(self) -> None:
+        """
+        查询所有上传记录
+        """
+        c = self.conn.cursor()
+        c.execute('SELECT * FROM upload_record')
+        return c.fetchone()
 
     def close(self) -> None:
         """

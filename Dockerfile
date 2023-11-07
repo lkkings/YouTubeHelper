@@ -1,7 +1,7 @@
 FROM node:16-slim
 
 # 如果是国内就替换阿里云镜像
-COPY sources.list /etc/apt/sources.list
+# COPY sources.list /etc/apt/sources.list
 
 # 单独安装谷歌浏览器
 RUN apt-get update

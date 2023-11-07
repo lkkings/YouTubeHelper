@@ -140,6 +140,8 @@ class Config:
         return rule
 
     def save1(self, cookie1) -> None:
+        if not cookie1:
+            return
         if Util.os.path.isfile("conf.ini"):
             # 用utf-8防止出错
             self.cf = Util.ConfigObj('conf.ini', encoding='utf-8')
@@ -155,6 +157,8 @@ class Config:
         return self.cf
 
     def save(self, cookie) -> None:
+        if not cookie:
+            return
         if Util.os.path.isfile("conf.ini"):
             # 用utf-8防止出错
             self.cf = Util.ConfigObj('conf.ini', encoding='utf-8')

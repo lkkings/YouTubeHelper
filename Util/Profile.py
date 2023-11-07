@@ -21,9 +21,6 @@ class Profile:
         self.config = cmd.config_dict
         # 记录配置文件
         Util.log.info(f"配置文件：{cmd.config_dict}")
-        # 连接数据库
-        DB.nickMapper.connect()
-        DB.uploadMapper.connect()
         # 创建下载实例
         self.download = Util.Download(self.config)
 
@@ -436,6 +433,10 @@ class Profile:
         """
 
         try:
+            if self.config['uploader'].lower() == 'yes':
+                # 开启上传器则需要等待验证成功才开始下载
+                async with Util.auth_down:
+                    await Util.auth_down.wait()
             # 获取sec_user_id
             self.sec_user_id = await self.get_all_sec_user_id(inputs=self.config['uid'])
 
