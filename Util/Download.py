@@ -179,7 +179,6 @@ class Download:
 
         # 遍历aweme_data中的每一个aweme字典
         for aweme in aweme_data:
-            file_info = {'sec_uid': aweme['sec_uid'],'desc':aweme['desc']}
             aweme_time = Util.time.strptime(aweme['create_time'], '%Y-%m-%d %H.%M.%S')
             # 如果设置了日期区间并且作品的发布日期不在指定的日期范围内，则跳过
             if should_check_interval:
@@ -197,6 +196,7 @@ class Download:
             # 创建子目录名称
             subdir_name = await format_file_name(aweme, self.config['naming'])
             desc_path = Util.os.path.join(base_path, subdir_name)
+            aweme['desc_path'] = desc_path
             # 确保子目录存在，如果不存在，os.makedirs会自动创建
             Util.os.makedirs(desc_path, exist_ok=True)
 
@@ -205,7 +205,7 @@ class Download:
                 try:
                     video_url = aweme['video_url_list'][0]
                     video_name = f"{await format_file_name(aweme, self.config['naming'])}_video"
-                    file_info["videoFile"] = Util.os.path.join(desc_path, video_name+".mp4")
+                    aweme['video_name'] = video_name
                     await initiate_download("视频", video_url, ".mp4", desc_path, video_name)
                 except Exception:
                     Util.progress.console.print("[  失败  ]:该视频不可用，无法下载。")
@@ -216,7 +216,7 @@ class Download:
                     try:
                         cover_url = aweme['dynamic_cover'][0]
                         cover_name = f"{await format_file_name(aweme, self.config['naming'])}_cover"
-                        file_info["cover"] = Util.os.path.join(desc_path, cover_name+".png")
+                        aweme['cover_name'] = cover_name
                         await initiate_download("封面", cover_url, ".png", desc_path, cover_name)
                     except Exception:
                         Util.progress.console.print(f"[  失败  ]:该视频封面不可用，无法下载。")
@@ -232,7 +232,7 @@ class Download:
                     Util.log.warning(f"[  失败  ]:保存文案失败。{aweme} 异常：{Exception}")
             await Util.asyncio.gather(*download_tasks)
             download_tasks.clear()
-            await Util.queue.put(file_info)
+            await Util.queue.put(aweme)
 
         # 等待本页所有的下载任务完成, 如果不等待的话就会还没等下完就去下载下一页了, 并发下载多了会被服务器断开连接
 

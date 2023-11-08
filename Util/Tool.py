@@ -17,35 +17,3 @@ def get_cur_near_time(target_time: str, format="%Y/%m/%d"):
     else:
         next_day_date = current_time.strftime(format)
     return next_day_date
-
-
-def copy_file_to_docker(container_id, local_file_path, container_file_path):
-    try:
-        container = Util.client.containers.get(container_id)
-        with open(local_file_path, 'rb') as file:
-            container.put_archive('/', file.read(), container_file_path)
-        Util.progress.print(f'复制文件成功')
-        return True
-    except Exception as e:
-        Util.progress.print(f'[ 错误 ] copying file: {str(e)}')
-        return False
-
-
-def is_container_exists(container_name):
-    try:
-        Util.client.containers.get(container_name)
-        return True
-    except Exception as e:
-        return False
-
-
-def delete_file_from_docker(container_id,file_path):
-    try:
-        container = Util.client.containers.get(container_id)
-        exec_result = container.exec_run(['rm', file_path])
-        if exec_result.exit_code == 0:
-            print(f'File {file_path} deleted in container {container_id}')
-        else:
-            print(f'Error deleting file: {exec_result.output.decode("utf-8")}')
-    except Exception as e:
-        Util.progress.print(f'[ 错误 ] del file: {str(e)}')

@@ -4,12 +4,36 @@ const assert = require("assert");
 const fs = require("fs");
 const WebSocket = require('ws');
 const express = require('express');
+const axios = require('axios');
 const app = express();
 const path = require('path');
 const staticDir = path.join(__dirname, '.'); // 静态资源目录
 
 puppeteer.use(stealthPlugin());
 app.use(express.static(staticDir));
+
+async function download(fileUrl,localFilePath) {
+  try {
+    const response = await axios({
+      method: 'get',
+      url: fileUrl,
+      responseType: 'stream', // 指定响应类型为流
+    });
+    // 创建一个可写流，并将文件数据写入本地文件
+    const writer = fs.createWriteStream(localFilePath);
+    response.data.pipe(writer);
+    // 等待文件写入完成
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
+    console.log('File downloaded successfully.');
+    return true
+  } catch (error) {
+    console.error('Error downloading file:');
+    return false
+  }
+}
 
 async function sleep (time) {
   return new Promise((resolve) => setTimeout(resolve, time));
@@ -552,15 +576,23 @@ class WebSocketServer{
                     break
                 case 'upload':
 
-                    if (!fs.existsSync(message['meta']['videoFile'])) {
-                        console.error(message['meta']['videoFile']+"不存在");
-                        ws.send(JSON.stringify({action:'error',type: 3,message:message['meta']['videoFile']+"不存在"}))
-                    }else {
-                        console.log("准备上传文件")
-                        await this.uploader.upload(message['meta'])
-                        const meta = JSON.stringify(message['meta'])
-                        ws.send(JSON.stringify({action:'upload',meta: meta}))
+                    const meta = message['meta']
+                    console.log("准备下载文件")
+                    res = await download(meta['videoFile'],path.join(__dirname,'temp.mp4'));
+                    if (!res) {
+                        ws.send(JSON.stringify({action: 'error', type: 3, message: meta['videoFile'] + "下载失败"}))
+                        return
                     }
+                    meta['videoFile'] = path.join(__dirname,'temp.mp4')
+                    res = await  download(meta['videoPic'],path.join(__dirname,'temp.png'));
+                    if (!res){
+                        meta['videoPic'] = null;
+                    }
+                    meta['videoPic'] = path.join(__dirname,'temp.png')
+                     console.log("下载文件完成")
+                    console.log("准备上传文件")
+                    await this.uploader.upload(meta)
+                    ws.send(JSON.stringify({action:'upload',meta: message['meta']}))
                     break
 
               }
@@ -577,18 +609,22 @@ class WebSocketServer{
       });
     }
 }
+
 app.listen(8080, () => {
      console.log(`static sources Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless: 'new',executablePath: 'google-chrome-stable',args: [
+    YoutubeUploader.createAsyncInstance({headless:false, timeout: 60000,args: [
 '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
+        //用于监控
+        app.get('/look',async (req, res) => {
+            await uploader.page.screenshot({ path: 'screenshot.png' })
+            res.sendFile(path.join(__dirname,'screenshot.png'));
+        });
         const wsurl = "ws://127.0.0.1:8765";
         const interval = 30000;
         const server = new WebSocketServer(uploader,wsurl,interval);
-         //使用监控
-        setInterval(async ()=>await uploader.page.screenshot({ path: 'screenshot.png' }),3000)
         await server.connect();
     })
 });
