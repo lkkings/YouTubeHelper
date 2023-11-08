@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer-extra');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
 const assert = require("assert");
+const fs = require("fs");
 const WebSocket = require('ws');
 const express = require('express');
 const app = express();
@@ -24,7 +25,7 @@ class Constants {
   }
 
   static get UPLOAD_PROGRESS_DOWN(){
-      return '已完成';
+      return '上传完毕';
   }
 
   static get IS_LOGIN(){
@@ -276,7 +277,7 @@ class YoutubeUploader{
             await uploadVideo.uploadFile(value);
             let flag;
             do {
-                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,Constants.USER_WAITING*0.5);
+                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,Constants.USER_WAITING);
                 let info = await uploadProgress.evaluate(ele=>ele.textContent);
                 console.log(info);
                 flag = info.includes(Constants.UPLOAD_PROGRESS_DOWN);
@@ -500,80 +501,95 @@ class YoutubeUploader{
         }
     }
 }
-async function connectWebSocket(uploader) {
-    let  ws  ;
-  try {
-       ws = new WebSocket('ws://127.0.0.1:8765');
-  }catch (e) {
-          await sleep(3000);
-        await connectWebSocket(uploader);
-        return
-  }
-  ws.on('open', () => {
-    console.log('WebSocket 连接已建立');
-  });
-  ws.on('message', async (data) => {
-                // 二进制数据，将其转换为字符串
-                const messageStr = data.toString('utf8');
-                const message = JSON.parse(messageStr);
-                console.log('收到二进制消息，转换为字符串:', message);
-                let res;
-                switch (message['action']) {
-                    case 'login':
-                        if (message['type'] === 0) {
-                            // cookies登入
-                            res = await uploader.trySetCookie(message['cookies']);
-                            const data = res?{action:'login'}:{action:'error',type:1,message:'cookie异常或过期，请重新登入'};
-                            ws.send(JSON.stringify(data));
-                        }else {
-                            // 账号密码登入
-                            res = await uploader.login(message['account'],message['password'])
-                            if(res){
-                                const cookies = await uploader.page.cookies();
-                                ws.send(JSON.stringify({action:'login', cookies:JSON.stringify(cookies)}));
-                            }else {
-                                ws.send(JSON.stringify({action:'error', type:2,message:'账号或密码错误，请重新输入'}));
-                            }
-                        }
-                        break
-                    case 'upload':
-                        try{
-                            await uploader.upload(message['meta'])
-                            const meta = JSON.stringify(message['meta'])
-                            ws.send(JSON.stringify({action:'upload',meta: meta}))
-                        }catch (e) {
-                            console.log(e)
-                            ws.send(JSON.stringify({action:'error',type: 3,message: e}))
-                        }
-                  }
-        });
 
-  ws.on('close', async (code, reason) => {
-      console.log('关闭代码:', code);
-      console.log('关闭原因:', reason.toString('utf8'));
-      if (code === 1000) {
-            console.log('WebSocket 连接正常关闭');
-        } else {
-          console.error('WebSocket 连接关闭，将尝试重新连接');
-          await sleep(3000);
-        await connectWebSocket(uploader);
+class WebSocketServer{
+
+    constructor(uploader,ws,interval) {
+        this.uploader = uploader;
+        this.ws = ws;
+        this.timer = null;
+        this.interval = interval
     }
-  });
 
-  ws.on('error',async (error) => {
-    console.error('WebSocket 出现错误', error);
-  });
+    async connect(){
+        await this.__tryConnect()
+    }
+
+    async __setTimer(){
+        this.timer = setInterval(async ()=>await this.__tryConnect(),this.interval)
+    }
+
+    async __tryConnect(){
+        let ws = new WebSocket(this.ws);
+        ws.on('open', () => {
+          console.log('WebSocket 连接已建立');
+          clearInterval(this.timer);
+          this.timer = null;
+      });
+        ws.on('message', async (data) => {
+          // 二进制数据，将其转换为字符串
+          const messageStr = data.toString('utf8');
+          const message = JSON.parse(messageStr);
+             console.log('收到二进制消息，转换为字符串:', message);
+             let res;
+             switch (message['action']) {
+                case 'login':
+                    if (message['type'] === 0) {
+                        // cookies登入
+                        res = await this.uploader.trySetCookie(message['cookies']);
+                        const data = res?{action:'login'}:{action:'error',type:1,message:'cookie异常或过期，请重新登入'};
+                        ws.send(JSON.stringify(data));
+                    }else {
+                        // 账号密码登入
+                        res = await this.uploader.login(message['account'],message['password'])
+                        if(res){
+                            const cookies = await this.uploader.page.cookies();
+                            ws.send(JSON.stringify({action:'login', cookies:JSON.stringify(cookies)}));
+                        }else {
+                            ws.send(JSON.stringify({action:'error', type:2,message:'账号或密码错误，请重新输入'}));
+                        }
+                    }
+                    break
+                case 'upload':
+
+                    if (!fs.existsSync(message['meta']['videoFile'])) {
+                        console.error(message['meta']['videoFile']+"不存在");
+                        ws.send(JSON.stringify({action:'error',type: 3,message:message['meta']['videoFile']+"不存在"}))
+                    }else {
+                        console.log("准备上传文件")
+                        await this.uploader.upload(message['meta'])
+                        const meta = JSON.stringify(message['meta'])
+                        ws.send(JSON.stringify({action:'upload',meta: meta}))
+                    }
+                    break
+
+              }
+    });
+        ws.on('close', async (code, reason) => {
+            if (!this.timer){
+                await this.__setTimer()
+            }
+      });
+        ws.on('error', async (code, reason) => {
+           if (!this.timer){
+                await this.__setTimer()
+            }
+      });
+    }
 }
 app.listen(8080, () => {
-     console.log(`Server is running on port 8080`);
+     console.log(`static sources Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless: 'new', executablePath: 'google-chrome-stable',args: [
+    YoutubeUploader.createAsyncInstance({headless: 'new',executablePath: 'google-chrome-stable',args: [
 '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
+        const wsurl = "ws://127.0.0.1:8765";
+        const interval = 30000;
+        const server = new WebSocketServer(uploader,wsurl,interval);
          //使用监控
         setInterval(async ()=>await uploader.page.screenshot({ path: 'screenshot.png' }),3000)
-        await connectWebSocket(uploader);
+        await server.connect();
     })
 });
 

@@ -1,7 +1,6 @@
 aiohttp==3.8.5
 configobj==5.0.8
-Flask==2.2.5
-gradio==3.34.0
+docker
 lxml==4.9.2
 Pillow
 PyExecJS==1.5.1

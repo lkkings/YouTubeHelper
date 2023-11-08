@@ -6,7 +6,7 @@ import DB
 import Util
 
 uploader = None
-
+container_id = None
 config = None
 
 
@@ -47,7 +47,7 @@ def init_load():
     pass
 
 
-async def uploader_handler(websocket):
+async def message_handler(websocket):
     global uploader
     Util.progress.print(f"YouTube上传器已连接: {websocket.remote_address}")
     Util.log.error(f"YouTube上传器已连接: {websocket.remote_address}")
@@ -71,15 +71,17 @@ async def uploader_handler(websocket):
                 async with Util.auth_down:
                     Util.auth_down.notify_all()
             elif action == 'upload':
-                async with Util.upload_down:
-                    Util.upload_down.notify_all()
                 meta = Util.json.loads(message['meta'])
                 DB.uploadMapper.addRecord(meta['sec_uid'], meta['name'])
                 Util.progress.print(f'{meta["videoFile"]}上传成功')
                 Util.log.info(f'{meta["videoFile"]}上传成功')
+                Util.delete_file_from_docker(container_id, 'temp.mp4')
+                Util.delete_file_from_docker(container_id, 'temp.png')
                 if config['del']:
                     video_dir = Util.Path(meta["videoFile"]).parent
                     Util.shutil.rmtree(video_dir)
+                async with Util.upload_down:
+                    Util.upload_down.notify_all()
 
     except websockets.ConnectionClosedError as e:
         Util.close_event.set()
@@ -90,6 +92,17 @@ async def uploader_handler(websocket):
             Util.upload_down.notify_all()
         Util.progress.print('YouTube上传器断开连接')
         Util.log.error('YouTube上传器断开连接')
+
+
+async def uploaderBoot(loop):
+    global container_id
+    while 1:
+        container_id = Util.prompt("请输入Uploader Docker容器ID")
+        if Util.is_container_exists(container_id):
+            break
+        Util.progress.print("容器不存在")
+    loop.run_until_complete(websockets.serve(message_handler, "0.0.0.0", 8765))
+    Util.progress.print("YouTube上传器等待连接")
 
 
 def work_processing(meta, message):
@@ -138,7 +151,9 @@ async def listener_handler():
             Util.progress.print(f"文件{message['videoFile']}缺失,准备删除文件夹{directory_parts[-2]}")
             Util.shutil.rmtree(directory_parts[-2])
             continue
-        meta = {'videoFile': message['videoFile'], 'videoPic': message['cover']
+        Util.copy_file_to_docker(container_id, message['videoFile'], 'temp.mp4')
+        Util.copy_file_to_docker(container_id, message['cover'], 'temp.png')
+        meta = {'videoFile': 'temp.mp4', 'videoPic': 'temp.png'
             , 'sec_uid': message['sec_uid'], 'name': name}
         meta = work_processing(meta, message)
         rule = config['rule']
@@ -178,14 +193,11 @@ async def downloader_handler(cmd):
 
 
 def run(cmd):
-    init_load()
     loop = Util.asyncio.get_event_loop()
     if not config["uploader"]:
         Util.progress.print("未启动YouTube上传器，仅开启下载模式")
     else:
-        uploader = websockets.serve(uploader_handler, "0.0.0.0", 8765)
-        loop.run_until_complete(uploader)
-        Util.progress.print("YouTube上传器等待连接")
+        uploaderBoot(loop)
     downloader = loop.create_task(downloader_handler(cmd))
     listener = loop.create_task(listener_handler())
     loop.run_until_complete(downloader)
@@ -205,6 +217,7 @@ def run(cmd):
 
 
 if __name__ == '__main__':
+    init_load()
     cmd = Util.Command()
     config = cmd.config_dict
     run(cmd)

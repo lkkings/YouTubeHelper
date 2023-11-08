@@ -66,6 +66,9 @@ from . import __version__
 # 日志记录
 log = Log()
 
+# 创建Docker客户端
+client = docker.from_env()
+
 queue = asyncio.Queue()
 
 upload_down = asyncio.Condition()
