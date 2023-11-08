@@ -75,8 +75,7 @@ async def message_handler(websocket):
                 DB.uploadMapper.addRecord(meta['sec_uid'], meta['name'])
                 Util.progress.print(f'{meta["videoFile"]}上传成功')
                 Util.log.info(f'{meta["videoFile"]}上传成功')
-
-                if config['del']:
+                if config['del'].lower() == "yes":
                     video_dir = Util.Path(meta["videoFile"]).parent
                     Util.shutil.rmtree(video_dir)
                 async with Util.upload_down:
@@ -147,9 +146,13 @@ async def listener_handler():
         pic_path = f'{rootUrl}/{message["cover_name"]}.png'
         video_url = f'{resource_url}/{Util.parse.quote(video_path)}'
         pic_url = f'{resource_url}/{Util.parse.quote(pic_path)}'
-        meta = {'videoFile': video_url, 'videoPic': pic_url
-            , 'sec_uid': message['sec_uid'], 'name': name}
+        meta = {}
         meta = work_processing(meta, message)
+        meta['videoFile'] = video_url
+        meta['videoPic'] = pic_url
+        meta['sec_uid'] = message['sec_uid']
+        meta['name'] = name
+        meta['type'] = config['type']
         rule = config['rule']
         if rule == 'now':
             meta['schedule'] = 'now'
@@ -171,6 +174,7 @@ async def downloader_handler(cmd):
     global config
     while not Util.done_event.is_set():
         uid = Util.prompt("请输入用户主页下载链接，回车则默认配置文件,按q则退出")
+        type = Util.prompt("请输入视频类别")
         if not uid:
             profile = Util.Profile(cmd)
             await profile.get_Profile()
@@ -181,6 +185,7 @@ async def downloader_handler(cmd):
             Util.progress.print('uid 不是一个有效的网络链接')
             continue
         config['uid'] = uid
+        config['type'] = type
         cmd.config_dict = config
         profile = Util.Profile(cmd)
         await profile.get_Profile()

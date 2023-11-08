@@ -310,7 +310,7 @@ class YoutubeUploader{
         },
         SET_PIC: async (value)=>{
             try {
-                const uploadPic = await this.options.find(Constants.INPUT_FILE_PIC,5 * Constants.INPUT_FILE_PIC);
+                const uploadPic = await this.options.find(Constants.INPUT_FILE_PIC,5 * Constants.USER_WAITING);
                 await uploadPic.uploadFile(value)
                 console.log("预览图设置完成");
             }catch (e) {
@@ -352,13 +352,16 @@ class YoutubeUploader{
         SET_TAGS: async (value)=>{
             await this.options.xwrite(Constants.TAGS_INPUT_XPATH,value.join(","))
             await this.page.keyboard.press('Enter');
-            await this.options.click(Constants.OPEN_TYPE_BUTTON)
-            const typeListBox = await this.page.waitForXPath(Constants.TYPE_LIST_BOX_XPATH);
-            const typeItems = await typeListBox.$x(Constants.TYPE_ITEM_XPATH.replace("{type}","娱乐"));
-            assert.ok(typeItems.length !== 0,"未知类型")
             await typeItems[0].click();
             console.log("标签设置完成")
         },
+        SET_TYPE: async (value)=>{
+            await this.options.click(Constants.OPEN_TYPE_BUTTON)
+            const typeListBox = await this.page.waitForXPath(Constants.TYPE_LIST_BOX_XPATH);
+            const typeItems = await typeListBox.$x(Constants.TYPE_ITEM_XPATH.replace("{type}",value));
+            assert.ok(typeItems.length !== 0,"未知类型")
+            console.log("设置类别完成")
+        } ,
         SET_SCHEDULE: async (value)=>{
             await this.options.click(Constants.NEXT_BUTTON);
             await this.options.click(Constants.NEXT_BUTTON);
@@ -385,6 +388,7 @@ class YoutubeUploader{
             "playList": this.Process.SET_PLAY_LIST,
             "isKid": this.Process.SET_KID,
             "tags": this.Process.SET_TAGS,
+            "type": this.Process.SET_TYPE,
             "schedule": this.Process.SET_SCHEDULE
         }
     }
@@ -549,6 +553,7 @@ class WebSocketServer{
           console.log('WebSocket 连接已建立');
           clearInterval(this.timer);
           this.timer = null;
+
       });
         ws.on('message', async (data) => {
           // 二进制数据，将其转换为字符串
@@ -586,13 +591,15 @@ class WebSocketServer{
                     meta['videoFile'] = path.join(__dirname,'temp.mp4')
                     res = await  download(meta['videoPic'],path.join(__dirname,'temp.png'));
                     if (!res){
-                        meta['videoPic'] = null;
+                        meta['videoPic'] = "";
                     }
                     meta['videoPic'] = path.join(__dirname,'temp.png')
-                     console.log("下载文件完成")
+                    console.log("下载文件完成")
                     console.log("准备上传文件")
                     await this.uploader.upload(meta)
-                    ws.send(JSON.stringify({action:'upload',meta: message['meta']}))
+                    fs.unlink(meta['videoFile'],()=>{})
+                    fs.unlink(meta['videoPic'], ()=>{})
+                    ws.send(JSON.stringify({action:'upload',meta: JSON.stringify(message['meta'])}))
                     break
 
               }
