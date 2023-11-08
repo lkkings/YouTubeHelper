@@ -75,8 +75,8 @@ async def message_handler(websocket):
                 DB.uploadMapper.addRecord(meta['sec_uid'], meta['name'])
                 Util.progress.print(f'{meta["videoFile"]}上传成功')
                 Util.log.info(f'{meta["videoFile"]}上传成功')
-                Util.delete_file_from_docker(container_id, 'temp.mp4')
-                Util.delete_file_from_docker(container_id, 'temp.png')
+                Util.delete_file_from_docker(container_id, meta["videoFile"])
+                Util.delete_file_from_docker(container_id, meta["videoPic"])
                 if config['del']:
                     video_dir = Util.Path(meta["videoFile"]).parent
                     Util.shutil.rmtree(video_dir)
