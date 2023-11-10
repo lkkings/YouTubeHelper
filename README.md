@@ -92,8 +92,6 @@ python main.py
 - 邮箱：[lkkings888@gmail.com](mailto:lkkings888@gmail.com)
 
 
-对于他们的贡献和努力，我们表示由衷的感谢。
-
 
 ## ⚖️ 免责声明/Disclaimer
 
