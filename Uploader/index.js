@@ -321,8 +321,8 @@ class YoutubeUploader{
                 const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,3*Constants.USER_WAITING);
                 if (uploadProgress){
                     info = await uploadProgress.evaluate(ele=>ele.textContent);
+                    logger.log('info', info);
                 }
-                logger.log('info', info);
                 flag = info.includes(Constants.UPLOAD_PROGRESS_DOWN);
             }while (!flag)
             logger.log('info', "视频上传完毕");
