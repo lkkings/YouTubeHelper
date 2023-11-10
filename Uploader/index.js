@@ -420,7 +420,7 @@ class YoutubeUploader{
         const page =  await browser.newPage();
         page.on('dialog', async (dialog) => {
                   logger.log('info', `捕获到对话框消息: ${dialog.message()}`);
-            await dialog.dismiss(); // 关闭对话框
+            await dialog.accept(); // 关闭对话框
         });
         await YoutubeUploader.__disguise(page);
         return page
@@ -569,7 +569,7 @@ class WebSocketServer{
         let ws = new WebSocket(this.ws);
         ws.on('open', () => {
               logger.log('info', 'WebSocket 连接已建立');
-      });
+        });
         ws.on('message', async (data) => {
           // 二进制数据，将其转换为字符串
           const messageStr = data.toString('utf8');
@@ -577,6 +577,7 @@ class WebSocketServer{
              let res;
              switch (message['action']) {
                 case 'login':
+                    console.log(messageStr)
                     if (message['type'] === 0) {
                         // cookies登入
                         res = await this.uploader.trySetCookie(message['cookies']);
@@ -637,21 +638,22 @@ class WebSocketServer{
     }
 }
 
+const os = require('os');
 
-// 获取用户操作系统信息
-const userOS = navigator.platform;
-
+// 获取系统信息
+const userOS = os.platform();
+let executablePath
 // 检测特定操作系统
 if (userOS.toLowerCase().includes('win')) {
-   let executablePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+   executablePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 } else {
-   let executablePath = 'google-chrome-stable'
+   executablePath = 'google-chrome-stable'
 }
 if(process.argv[3]) executablePath = process.argv[2]
 app.listen(process.argv[2]?process.argv[2]:8080, () => {
      console.log(`static sources Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless:'new',executablePath:executablePath
+    YoutubeUploader.createAsyncInstance({headless:false,executablePath:executablePath
 , timeout: 60000,args: [
 '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
@@ -665,7 +667,7 @@ app.listen(process.argv[2]?process.argv[2]:8080, () => {
             res.sendFile(path.join(__dirname,'app.log'))
         })
         const wsurl = "ws://127.0.0.1:8765";
-        const interval = 1;
+        const interval = 3000;
         const server = new WebSocketServer(uploader,wsurl,interval);
         await server.connect();
     })

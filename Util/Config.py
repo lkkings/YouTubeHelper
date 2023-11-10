@@ -145,8 +145,6 @@ class Config:
         return rule
 
     def save1(self, cookie1) -> None:
-        if not cookie1:
-            return
         if self.exists():
             # 用utf-8防止出错
             self.cf = Util.ConfigObj('conf.ini', encoding='utf-8')

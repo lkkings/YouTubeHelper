@@ -185,7 +185,7 @@ async def downloader_handler(cmd: Util.Command):
 def bootResourceServer(cmd):
     port = int(cmd.config_dict["port"])
     command = f"python -m http.server  {port} --directory={cmd.config_dict['path']}"
-    subprocess.Popen(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     Util.progress.print(f'resourcer Server at http://localhost:{port}')
 
 
