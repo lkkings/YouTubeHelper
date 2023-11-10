@@ -8,6 +8,7 @@
 [![GitHub Repo Languages](https://img.shields.io/github/languages/top/lkkings/YouTubeHelper?style=for-the-badge)](https://github.com/BeyondDimension/SteamTools/search?l=c%23)
 [![Python v3.7.16](https://img.shields.io/badge/python-v3.7.16-orange?style=for-the-badge)](https://github.com/lkkings/YouTubeHelper.git)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub Stars](https://img.shields.io/github/stars/lkkings/YouTubeHelper?style=social)](https://github.com/lkkings/YouTubeHelper.git)
 [![GitHub Forks](https://img.shields.io/github/forks/lkkings/YouTubeHelper?style=social)](https://github.com/lkkings/YouTubeHelper.git)
 [![GitHub Issues](https://img.shields.io/github/issues/lkkings/YouTubeHelper?style=social)](https://github.com/lkkings/YouTubeHelper.git)
@@ -19,12 +20,10 @@
 
 ## 🚀 环境准备/Environment
 
-> Python v3.7.16
-> [![Python v3.7.16](https://www.python.org/static/img/python-logo@2x.png)](https://www.python.org/ftp/python/3.7.16)
+> [Python v3.7.16](https://www.python.org/ftp/python/3.7.16)
 
 
-> Nodejs v18.14.2
-> [![Nodejs v18.14.2](https://innovationyourself.com/wp-content/uploads/2020/08/nodejs-logo.png)](https://nodejs.org/dist/v18.14.2/)
+> [Nodejs v18.14.2](https://nodejs.org/dist/v18.14.2/)
 
 ## 🧰 功能/Features
 - ✅ 下载抖音用户作品。
@@ -103,6 +102,11 @@ python main.py
 
 ## 📜 版权声明/LICENSE
 
+MIT License
+
+Copyright (c) 2023 lkkings
+
+此项目的源代码在 MIT 许可证下授权，有关详细信息，请参阅 [LICENSE](LICENSE) 文件。
 
 
 
