@@ -315,11 +315,13 @@ class YoutubeUploader{
         SET_VIDEO: async (value)=>{
             const uploadVideo = await this.page.waitForSelector(Constants.INPUT_FILE_VIDEO);
             await uploadVideo.uploadFile(value);
-            let flag;
+            let flag, info;
             do {
                 await sleep(Constants.USER_WAITING);
-                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,Constants.USER_WAITING);
-                let info = await uploadProgress.evaluate(ele=>ele.textContent);
+                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,3*Constants.USER_WAITING);
+                if (uploadProgress){
+                    info = await uploadProgress.evaluate(ele=>ele.textContent);
+                }
                 logger.log('info', info);
                 flag = info.includes(Constants.UPLOAD_PROGRESS_DOWN);
             }while (!flag)
