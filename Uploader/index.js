@@ -574,7 +574,6 @@ class WebSocketServer{
           // 二进制数据，将其转换为字符串
           const messageStr = data.toString('utf8');
           const message = JSON.parse(messageStr);
-          logger.log('info', `收到消息，转换为字符串:${messageStr}`);
              let res;
              switch (message['action']) {
                 case 'login':
@@ -595,7 +594,7 @@ class WebSocketServer{
                     }
                     break
                 case 'upload':
-
+                    logger.log('info', `收到消息，转换为字符串:${messageStr}`);
                     const meta = message['meta']
                     console.log("准备下载文件")
                     res = await download(meta['videoFile'],path.join(__dirname,'temp.mp4'));
