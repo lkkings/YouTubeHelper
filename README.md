@@ -80,7 +80,7 @@ node index.js 8080 '谷歌浏览器路径'
 2. **▶️ 运行/Running**
 
 ```bash
-python main.py
+python app.py
 ```
 
 

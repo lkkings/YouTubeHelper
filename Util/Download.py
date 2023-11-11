@@ -101,8 +101,8 @@ class Download:
             - str: 格式化的文件名。
             """
             name = naming_template.format(create=aweme['create_time'], desc=aweme['desc'], id=aweme['aweme_id'])
-            if len(name) > 255:
-                name = name[:255]
+            if len(name) > 100:
+                name = name[:100]
             # 使用给定的命名模板格式化文件名
             return name
 

@@ -93,6 +93,3 @@ class Command:
             self.config_dict = cfg
             Util.progress.console.print('[  配置  ]:读取本地配置完成!\r')
             Util.log.info('[  配置  ]:读取本地配置完成!')
-        if cfg['uploader'] == 'yes' and cfg['cookie1'] == '':
-            self.account = Util.prompt("Google 账号")
-            self.password = Util.prompt("Google 密码",True)

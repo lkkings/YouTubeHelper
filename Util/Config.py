@@ -144,6 +144,14 @@ class Config:
             rule[day] = time
         return rule
 
+    def delete1(self) -> None:
+        if self.exists():
+            self.cf = Util.ConfigObj('conf.ini', encoding='utf-8')
+            self.cf['cookie1'] = ''
+            self.cf.filename = 'conf.ini'
+            self.cf.write()
+
+
     def save1(self, cookie1) -> None:
         if self.exists():
             # 用utf-8防止出错

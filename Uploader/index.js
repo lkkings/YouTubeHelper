@@ -1,10 +1,10 @@
 const puppeteer = require('puppeteer-extra');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
+const puppeteerPageProxy = require('puppeteer-page-proxy');
 const assert = require("assert");
-const fs = require("fs");
+const fs = require("fs").promises;
 const WebSocket = require('ws');
 const express = require('express');
-const axios = require('axios');
 const app = express();
 const path = require('path');
 const winston = require("winston");
@@ -12,6 +12,16 @@ const winston = require("winston");
 
 
 puppeteer.use(stealthPlugin());
+
+async function checkFileExistence(filePath) {
+  try {
+    // 使用 fs.access 方法进行异步检查文件是否存在
+    await fs.access(filePath, fs.constants.F_OK);
+    return true
+  } catch (err) {
+    return false;
+  }
+}
 
 //日志
 const logger = winston.createLogger({
@@ -27,29 +37,6 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'app.log' })  // 输出到文件
   ]
 });
-
-async function download(fileUrl,localFilePath) {
-  try {
-    const response = await axios({
-      method: 'get',
-      url: fileUrl,
-      responseType: 'stream', // 指定响应类型为流
-    });
-    // 创建一个可写流，并将文件数据写入本地文件
-    const writer = fs.createWriteStream(localFilePath);
-    response.data.pipe(writer);
-    // 等待文件写入完成
-    await new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
-    console.log('File downloaded successfully.');
-    return true
-  } catch (error) {
-    console.error('Error downloading file:');
-    return false
-  }
-}
 
 async function sleep (time) {
   return new Promise((resolve) => setTimeout(resolve, time));
@@ -318,7 +305,7 @@ class YoutubeUploader{
             let flag, info;
             do {
                 await sleep(Constants.USER_WAITING);
-                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,3*Constants.USER_WAITING);
+                const uploadProgress = await this.options.find(Constants.UPLOAD_PROGRESS,5*Constants.USER_WAITING);
                 if (uploadProgress){
                     info = await uploadProgress.evaluate(ele=>ele.textContent);
                     logger.log('info', info);
@@ -424,6 +411,12 @@ class YoutubeUploader{
                   logger.log('info', `捕获到对话框消息: ${dialog.message()}`);
             await dialog.accept(); // 关闭对话框
         });
+        const client = await page.target().createCDPSession();
+        //设置下载路径
+        client.send('Page.setDownloadBehavior', {
+            behavior: 'allow',
+            downloadPath: __dirname
+        });
         await YoutubeUploader.__disguise(page);
         return page
     }
@@ -472,23 +465,37 @@ class YoutubeUploader{
         await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
     }
 
-    async trySetCookie(cookiesStr){
-        if (cookiesStr === "")return false;
-        try {
-            const cookies = JSON.parse(cookiesStr);
-            for (const cookie of cookies) {
-                await this.page.setCookie(cookie);
-            }
-            await this.page.reload();
-            await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
-            const expr = await this.options.find(Constants.IS_LOGIN,2.5 * Constants.USER_WAITING);
-            if (expr){
-                this.page.deleteCookie();
-            }
-            return expr == null;
-        }catch (e) {
-            return false;
+
+    async download(url,newFileName=null){
+          // 创建一个<a>标签
+          await this.page.evaluate(async (url,newFileName) => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download =newFileName
+            a.click();
+          },url,newFileName);
+        let isFinish = false;
+        const now = Date.now();
+        const fileName = decodeURIComponent(path.basename(url));
+        while (!isFinish) {
+            await sleep(Constants.USER_WAITING)
+            isFinish = await checkFileExistence(fileName);
         }
+        if (newFileName){
+            await fs.rename(fileName,newFileName);
+        }
+          // 记录一下耗时
+        console.log(`文件下载完成: time=${Date.now() - now}`);
+    }
+
+    async trySetCookie(cookies){
+        if (cookies === "")return false;
+        await this.page.deleteCookie();
+        cookies = JSON.parse(cookies);
+        await this.page.setCookie(...cookies);
+        await this.page.goto(Constants.YOUTUBE_UPLOAD_URL);
+        const expr = await this.options.find(Constants.IS_LOGIN,2.5 * Constants.USER_WAITING);
+        return expr == null;
     }
 
 
@@ -590,43 +597,36 @@ class WebSocketServer{
                         res = await this.uploader.login(message['account'],message['password'])
                         if(res){
                             const cookies = await this.uploader.page.cookies();
-                            ws.send(JSON.stringify({action:'login', cookies:cookies}));
+                            ws.send(JSON.stringify({action:'login', cookies:JSON.stringify(cookies)}));
                         }else {
                             ws.send(JSON.stringify({action:'error', type:2,message:'账号或密码错误，请重新输入'}));
                         }
                     }
                     break
-                case 'upload':
+                 case 'upload':
                     logger.log('info', `收到消息，转换为字符串:${messageStr}`);
-                    const meta = message['meta']
-                    console.log("准备下载文件")
-                    res = await download(meta['videoFile'],path.join(__dirname,'temp.mp4'));
-                    if (!res) {
-                        ws.send(JSON.stringify({action: 'error', type: 3, message: meta['videoFile'] + "下载失败"}))
-                        return
-                    }
-                    meta['videoFile'] = path.join(__dirname,'temp.mp4')
-                    res = await  download(meta['videoPic'],path.join(__dirname,'temp.png'));
-                    if (!res){
-                        meta['videoPic'] = "";
-                    }
-                    meta['videoPic'] = path.join(__dirname,'temp.png')
-                    console.log("下载文件完成")
-                    logger.log('info', "准备上传文件");
-                    console.log()
-                    try {
+                    try{
+                        const meta = Object.assign({}, message['meta']);
+                        console.log("准备下载文件")
+                        await this.uploader.download(meta['videoFile'],'temp.mp4');
+                        meta['videoFile'] = path.join(__dirname,'temp.mp4')
+                        if (meta['videoPic']){
+                            await this.uploader.download(meta['videoPic'],'temp.png');
+                            meta['videoPic'] = path.join(__dirname,'temp.png')
+                        }
+                        console.log("下载文件完成")
+                        logger.log('info', "准备上传文件");
                         await this.uploader.upload(meta)
                         ws.send(JSON.stringify({action:'upload',meta: meta}))
+                        await fs.unlink(meta['videoFile'])
+                        await fs.unlink(meta['videoPic'])
                     }catch (e) {
-                        ws.send(JSON.stringify({action: 'error', type: 3, message: e}))
+                        // 上传失败那就发送回去重试
+                        ws.send(JSON.stringify({action: 'error', type: 3, message: e,data:message['meta']}))
                         logger.log('error', `上传异常:${e}`);
                         await sleep(10000)
                     }
-                    fs.unlink(meta['videoFile'],()=>{})
-                    fs.unlink(meta['videoPic'], ()=>{})
-                    await sleep(10000)
                     break
-
               }
     });
         ws.on('close', async (code, reason) => {
@@ -652,11 +652,14 @@ if (userOS.toLowerCase().includes('win')) {
    executablePath = 'google-chrome-stable'
 }
 if(process.argv[3]) executablePath = process.argv[2]
+
+//代理服务器
+const proxy = "sock4://lkkings:2893891716Aa@52.175.146.127:6666"
 app.listen(process.argv[2]?process.argv[2]:8080, () => {
      console.log(`static sources Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless:false,executablePath:executablePath
-, timeout: 60000,args: [
+    YoutubeUploader.createAsyncInstance({headless:false,executablePath:executablePath,proxy:proxy,
+timeout: 60000,args: [`--proxy-server=${proxy}`,
 '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
 ]})
     .then(async uploader => {
