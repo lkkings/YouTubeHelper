@@ -183,6 +183,12 @@ async def downloader_handler():
             continue
         cmd.cur_type = Util.prompt("请输入视频类别")
         cmd.config_dict['uid'] = uid
+        if cmd.config_dict['uploader'].lower() == 'yes':
+            # 开启上传器则需要等待验证成功才开始下载
+            Util.progress.print("等待验证")
+            async with auth_down:
+                await auth_down.wait()
+            Util.progress.print("验证成功")
         profile = Util.Profile(cmd)
         await profile.get_Profile()
 

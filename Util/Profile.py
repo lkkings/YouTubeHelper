@@ -436,10 +436,6 @@ class Profile:
         """
 
         try:
-            if self.config['uploader'].lower() == 'yes':
-                # 开启上传器则需要等待验证成功才开始下载
-                async with Util.auth_down:
-                    await Util.auth_down.wait()
             Util.progress.print("准备爬取数据......")
             # 获取sec_user_id
             self.sec_user_id = await self.get_all_sec_user_id(inputs=self.config['uid'])
