@@ -12,8 +12,6 @@ def lifespan(app):
     loop = Util.asyncio.get_event_loop()
     loop.create_task(downloader_handler())
     loop.create_task(listener_handler())
-    yield
-    Util.progress.print("服务关闭")
 
 
 app = FastAPI(lifespan=lifespan)
