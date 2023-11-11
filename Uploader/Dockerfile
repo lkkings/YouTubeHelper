@@ -1,4 +1,4 @@
-FROM node:16-slim
+FROM node:18-slim
 
 # 如果是国内就替换阿里云镜像
 # COPY sources.list /etc/apt/sources.list
@@ -14,11 +14,11 @@ RUN rm google-chrome-stable_current_amd64.deb
 # ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # 复制文件到镜像的app目录下
-COPY index.js /app/
 COPY package.json /app/
-# 装包
-WORKDIR /app
 # 如果是国内就设置镜像
 # RUN npm set registry http://registry.npm.taobao.org/
 RUN npm install
+COPY index.js /app/
+# 装包
+WORKDIR /app
 ENTRYPOINT node index.js

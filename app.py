@@ -7,11 +7,17 @@ import Util
 
 uploader: WebSocket
 
+upload_down = Util.asyncio.Condition()
+
+auth_down = Util.asyncio.Condition()
+
 
 def lifespan(app):
     loop = Util.asyncio.get_event_loop()
+    Util.asyncio.set_event_loop(loop)
     loop.create_task(downloader_handler())
     loop.create_task(listener_handler())
+    yield
 
 
 app = FastAPI(lifespan=lifespan)
@@ -42,15 +48,15 @@ async def websocket_endpoint(websocket: WebSocket):
             # 表示登入成功
             Util.Config().save1(message.get('cookies'))
             Util.progress.print("验证成功")
-            async with Util.auth_down:
-                Util.auth_down.notify_all()
+            async with auth_down:
+                auth_down.notify_all()
         elif action == 'upload':
             meta = message['meta']
             DB.uploadMapper.addRecord(meta['sec_uid'], meta['name'])
             Util.progress.print(f'{meta["videoFile"]}上传成功')
             Util.log.info(f'{meta["videoFile"]}上传成功')
-            async with Util.upload_down:
-                Util.upload_down.notify_all()
+            async with upload_down:
+                upload_down.notify_all()
 
 
 async def account_password_login():
@@ -76,8 +82,8 @@ class ErrorHandler:
 
     async def upload_error(self,data):
         await Util.queue.put(data)
-        async with Util.upload_down:
-            Util.upload_down.notify_all()
+        async with upload_down:
+            upload_down.notify_all()
 
     async def handler(self, message):
         type = int(message["type"])
@@ -121,8 +127,8 @@ async def listener_handler():
         Util.progress.print("未开启上传器")
         return
     # 使用了上传器就必须等待验证成功
-    async with Util.auth_down:
-        await Util.auth_down.wait()
+    async with auth_down:
+        await auth_down.wait()
     while not Util.done_event.is_set():
         message = await Util.queue.get()
         name = message['nickname'] + ':' + message['desc']
@@ -161,8 +167,8 @@ async def listener_handler():
         meta['schedule'] = '2023/11/12 09:00'
         await uploader.send_json({"action": "upload", "meta": meta})
         # 等待上一个视频上传完
-        async with Util.upload_down:
-            await Util.upload_down.wait()
+        async with upload_down:
+            await upload_down.wait()
 
 
 async def downloader_handler():

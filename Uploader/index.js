@@ -1,6 +1,5 @@
 const puppeteer = require('puppeteer-extra');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
-const puppeteerPageProxy = require('puppeteer-page-proxy');
 const assert = require("assert");
 const fs = require("fs").promises;
 const WebSocket = require('ws');
@@ -653,15 +652,11 @@ if (userOS.toLowerCase().includes('win')) {
 }
 if(process.argv[3]) executablePath = process.argv[2]
 
-//代理服务器
-const proxy = "sock4://lkkings:2893891716Aa@52.175.146.127:6666"
 app.listen(process.argv[2]?process.argv[2]:8080, () => {
      console.log(`static sources Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless:false,executablePath:executablePath,proxy:proxy,
-timeout: 60000,args: [`--proxy-server=${proxy}`,
-'--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN'
-]})
+    YoutubeUploader.createAsyncInstance({headless:false,executablePath:executablePath,
+timeout: 60000,args:['--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN']})
     .then(async uploader => {
         //用于监控
         app.get('/look',async (req, res) => {

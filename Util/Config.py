@@ -147,7 +147,7 @@ class Config:
     def delete1(self) -> None:
         if self.exists():
             self.cf = Util.ConfigObj('conf.ini', encoding='utf-8')
-            self.cf['cookie1'] = ''
+            self.cf['cookie1'] = ""
             self.cf.filename = 'conf.ini'
             self.cf.write()
 

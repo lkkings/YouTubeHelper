@@ -76,6 +76,10 @@ class Command:
 
         # 检查配置文件是否存在
         cfg = Util.Config().check()
+        if not Util.os.path.exists(cfg["path"]):
+            # 创建用户文件夹
+            Util.os.makedirs(cfg["path"])
+
         if cfg['cookie'] == '':
             # sso登录
             login = Util.Login()

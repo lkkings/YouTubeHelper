@@ -68,9 +68,6 @@ log = Log()
 
 queue = asyncio.Queue()
 
-upload_down = asyncio.Condition()
-auth_down = asyncio.Condition()
-
 
 def prompt(text,password=False):
     prompt_style = "bold cyan on black"
