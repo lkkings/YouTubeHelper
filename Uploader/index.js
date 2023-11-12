@@ -2,15 +2,39 @@ const puppeteer = require('puppeteer-extra');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
 const assert = require("assert");
 const fs = require("fs").promises;
+const fs1 = require("fs");
 const WebSocket = require('ws');
 const express = require('express');
-const app = express();
 const path = require('path');
 const winston = require("winston");
+
+const app = express();
 
 
 
 puppeteer.use(stealthPlugin());
+
+async function download(fileUrl,localFilePath) {
+       const CHUNK_SIZE = 1024 * 1024 * 10 // 每次下载10MB
+    let response = await fetch(fileUrl)
+    const contentRange = response.headers.get('content-range')
+      const fileSize = contentRange ? Number(contentRange.split('/')[1]) : response.headers.get('content-length')
+      const pipeline = promisify(require('stream').pipeline);
+        let offset = 0
+    const writer = fs1.createWriteStream(localFilePath);
+    while (offset < fileSize) {
+        const end = Math.min(offset + CHUNK_SIZE, fileSize)
+        response = await axios({
+            method: 'get',
+            url: fileUrl,
+            responseType: 'stream',// 指定响应类型为流
+            headers: { 'Range': `bytes=${offset}-${end - 1}` }
+        });
+        await pipeline(response.data,writer)
+        offset = end
+    }
+    console.log('File downloaded successfully.');
+}
 
 async function checkFileExistence(filePath) {
   try {
@@ -466,8 +490,10 @@ class YoutubeUploader{
 
 
     async download(url,newFileName=null){
-          // 创建一个<a>标签
-          await this.page.evaluate(async (url,newFileName) => {
+        /**
+         * 经过测试该方法在容器中失效
+         */
+        await this.page.evaluate(async (url,newFileName) => {
             const a = document.createElement('a');
             a.href = url;
             a.download =newFileName
@@ -607,10 +633,10 @@ class WebSocketServer{
                     try{
                         const meta = Object.assign({}, message['meta']);
                         console.log("准备下载文件")
-                        await this.uploader.download(meta['videoFile'],'temp.mp4');
+                        await download(meta['videoFile'],'temp.mp4');
                         meta['videoFile'] = path.join(__dirname,'temp.mp4')
                         if (meta['videoPic']){
-                            await this.uploader.download(meta['videoPic'],'temp.png');
+                            await download(meta['videoPic'],'temp.png');
                             meta['videoPic'] = path.join(__dirname,'temp.png')
                         }
                         console.log("下载文件完成")
@@ -640,6 +666,8 @@ class WebSocketServer{
 }
 
 const os = require('os');
+const {promisify} = require("util");
+const axios = require("axios");
 
 // 获取系统信息
 const userOS = os.platform();
