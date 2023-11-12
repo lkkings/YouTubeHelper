@@ -605,19 +605,19 @@ class WebSocketServer{
                     logger.log('info', `收到消息，转换为字符串:${messageStr}`);
                     try{
                         const meta = Object.assign({}, message['meta']);
-                        console.log("准备下载文件")
-                        await this.uploader.download(meta['videoFile'],'temp.mp4');
-                        meta['videoFile'] = path.join(__dirname,'temp.mp4')
-                        if (meta['videoPic']){
-                            await this.uploader.download(meta['videoPic'],'temp.png');
-                            meta['videoPic'] = path.join(__dirname,'temp.png')
-                        }
-                        console.log("下载文件完成")
+                        // console.log("准备下载文件")
+                        // await this.uploader.download(meta['videoFile'],'temp.mp4');
+                        // meta['videoFile'] = path.join(__dirname,'temp.mp4')
+                        // if (meta['videoPic']){
+                        //     await this.uploader.download(meta['videoPic'],'temp.png');
+                        //     meta['videoPic'] = path.join(__dirname,'temp.png')
+                        // }
+                        // console.log("下载文件完成")
                         logger.log('info', "准备上传文件");
                         await this.uploader.upload(meta)
                         ws.send(JSON.stringify({action:'upload',meta: meta}))
-                        await fs.unlink(meta['videoFile'])
-                        await fs.unlink(meta['videoPic'])
+                        // await fs.unlink(meta['videoFile'])
+                        // await fs.unlink(meta['videoPic'])
                     }catch (e) {
                         // 上传失败那就发送回去重试
                         ws.send(JSON.stringify({action: 'error', type: 3, message: e,data:message['meta']}))
