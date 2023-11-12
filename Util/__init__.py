@@ -66,8 +66,6 @@ from . import __version__
 # 日志记录
 log = Log()
 
-queue = asyncio.Queue()
-
 
 def prompt(text,password=False):
     prompt_style = "bold cyan on black"
@@ -154,12 +152,9 @@ progress = Progress(
     console=console,
     expand=True
 )
+queue: asyncio.Queue
 
-done_event = asyncio.Event()
-
-con_event = asyncio.Event()
-
-close_event = asyncio.Event()
+done_event: asyncio.Event
 
 
 

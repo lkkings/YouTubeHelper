@@ -655,7 +655,7 @@ if(process.argv[3]) executablePath = process.argv[2]
 app.listen(process.argv[2]?process.argv[2]:8080, () => {
      console.log(`static sources Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless:false,executablePath:executablePath,
+    YoutubeUploader.createAsyncInstance({headless:'new',executablePath:executablePath,
 timeout: 60000,args:['--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN']})
     .then(async uploader => {
         //用于监控

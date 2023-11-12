@@ -1,20 +1,24 @@
 import uvicorn
 from fastapi import FastAPI, WebSocket
 from starlette.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 
 import DB
 import Util
 
 uploader: WebSocket
 
-upload_down = Util.asyncio.Condition()
+upload_down: Util.asyncio.Condition
+auth_down: Util.asyncio.Condition
 
-auth_down = Util.asyncio.Condition()
-
-
-def lifespan(app):
-    loop = Util.asyncio.get_event_loop()
-    Util.asyncio.set_event_loop(loop)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global upload_down,auth_down
+    Util.queue = Util.asyncio.Queue()
+    Util.done_event = Util.asyncio.Event()
+    loop = Util.asyncio.get_running_loop()
+    upload_down = Util.asyncio.Condition()
+    auth_down = Util.asyncio.Condition()
     loop.create_task(downloader_handler())
     loop.create_task(listener_handler())
     yield
@@ -28,8 +32,9 @@ async def websocket_endpoint(websocket: WebSocket):
     global uploader
     await websocket.accept()
     Util.progress.print(f"YouTube上传器已连接: {websocket.client}")
-    Util.log.error(f"YouTube上传器已连接: {websocket.client}")
+    Util.log.info(f"YouTube上传器已连接: {websocket.client}")
     uploader = websocket
+    await Util.asyncio.sleep(1)
     error_handler = ErrorHandler()
     # 先尝试使用cookie登入
     if cmd.config_dict['cookie1']:
@@ -185,7 +190,6 @@ async def downloader_handler():
         cmd.config_dict['uid'] = uid
         if cmd.config_dict['uploader'].lower() == 'yes':
             # 开启上传器则需要等待验证成功才开始下载
-            Util.progress.print("等待验证")
             async with auth_down:
                 await auth_down.wait()
             Util.progress.print("验证成功")
