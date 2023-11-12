@@ -145,16 +145,20 @@ async def listener_handler():
             Util.progress.print(f"文件{video_path}缺失,准备删除文件夹{message['desc_path']}")
             Util.shutil.rmtree(message['desc_path'])
             continue
-        directory_parts = message['desc_path'].split(Util.os.path.sep)
-        rootUrl = f'{directory_parts[-3]}/{directory_parts[-2]}/{directory_parts[-1]}'
-        video_path = f'{rootUrl}/{message["video_name"]}.mp4'
-        pic_path = f'{rootUrl}/{message["cover_name"]}.png'
-        video_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(video_path)}'
-        pic_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(pic_path)}'
         meta = {}
+        # directory_parts = message['desc_path'].split(Util.os.path.sep)
+        # rootUrl = f'{directory_parts[-3]}/{directory_parts[-2]}/{directory_parts[-1]}'
+        # video_path = f'{rootUrl}/{message["video_name"]}.mp4'
+        # pic_path = f'{rootUrl}/{message["cover_name"]}.png'
+        # video_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(video_path)}'
+        # pic_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(pic_path)}'
+        # meta['videoFile'] = video_url
+        # meta['videoPic'] = pic_url
+        video_path = Util.os.path.join(message['desc_path'],f'{message["video_name"]}.mp4')
+        pic_path = Util.os.path.join(message['desc_path'],f'{message["cover_name"]}.png')
+        meta['videoFile'] = video_path
+        meta['videoPic'] = pic_path
         meta = work_processing(meta, message)
-        meta['videoFile'] = video_url
-        meta['videoPic'] = pic_url
         meta['sec_uid'] = message['sec_uid']
         meta['name'] = name
         meta['type'] = message['type']

@@ -4,13 +4,9 @@ const assert = require("assert");
 const fs = require("fs").promises;
 const WebSocket = require('ws');
 const express = require('express');
-const app = express();
 const path = require('path');
 const winston = require("winston");
 
-
-
-puppeteer.use(stealthPlugin());
 
 async function checkFileExistence(filePath) {
   try {
@@ -467,12 +463,15 @@ class YoutubeUploader{
 
     async download(url,newFileName=null){
           // 创建一个<a>标签
-          await this.page.evaluate(async (url,newFileName) => {
+        await this.page.evaluate(async (url,newFileName) => {
             const a = document.createElement('a');
             a.href = url;
             a.download =newFileName
-            a.click();
+            a.id = "fsgrshtrsjhsrgErggear"
           },url,newFileName);
+        console.log("a 标签创建成功");
+        await sleep(Constants.USER_WAITING)
+        await this.options.click('#fsgrshtrsjhsrgErggear')
         let isFinish = false;
         const now = Date.now();
         const fileName = decodeURIComponent(path.basename(url));
@@ -638,8 +637,9 @@ class WebSocketServer{
       });
     }
 }
-
 const os = require('os');
+const app = express();
+puppeteer.use(stealthPlugin());
 
 // 获取系统信息
 const userOS = os.platform();
@@ -651,12 +651,11 @@ if (userOS.toLowerCase().includes('win')) {
    executablePath = 'google-chrome-stable'
 }
 if(process.argv[3]) executablePath = process.argv[2]
-
 app.listen(process.argv[2]?process.argv[2]:8080, () => {
      console.log(`static sources Server is running on port 8080`);
      // executablePath: 'google-chrome-stable'
-    YoutubeUploader.createAsyncInstance({headless:'new',executablePath:executablePath,
-timeout: 60000,args:['--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN']})
+    YoutubeUploader.createAsyncInstance({headless:false,executablePath:executablePath,
+timeout: 60000,args:[ '--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN']})
     .then(async uploader => {
         //用于监控
         app.get('/look',async (req, res) => {
@@ -666,6 +665,7 @@ timeout: 60000,args:['--disable-web-security','--no-sandbox', '--disable-setuid-
         app.get('/log',(rep,res)=>{
             res.sendFile(path.join(__dirname,'app.log'))
         })
+        await uploader.page.goto("http://localhost:8000/like/%E6%9D%80%E7%8C%AA%E9%A5%B2%E6%96%99/2023-05-29%2001.02.00_%E6%9D%A5%E6%84%9F%E5%8F%97%E4%B8%80%E4%B8%8B%E5%85%A8%E7%BE%8E%E6%9C%80%E8%AE%A8%E5%8E%8C%E5%A5%B3%E6%98%9F%E4%B9%8B%E4%B8%80%E7%9A%84%E9%AD%85%E5%8A%9B%E5%90%A7_/2023-05-29%2001.02.00_%E6%9D%A5%E6%84%9F%E5%8F%97%E4%B8%80%E4%B8%8B%E5%85%A8%E7%BE%8E%E6%9C%80%E8%AE%A8%E5%8E%8C%E5%A5%B3%E6%98%9F%E4%B9%8B%E4%B8%80%E7%9A%84%E9%AD%85%E5%8A%9B%E5%90%A7__video.mp4")
         const wsurl = "ws://127.0.0.1:8765";
         const interval = 3000;
         const server = new WebSocketServer(uploader,wsurl,interval);

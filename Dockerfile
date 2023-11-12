@@ -1,5 +1,8 @@
 FROM node:18-slim
 
+# 设置代理
+ENV HTTP_PROXY=http://lkkings:333@52.175.146.127:6666
+
 # 如果是国内就替换阿里云镜像
 # COPY sources.list /etc/apt/sources.list
 
@@ -11,14 +14,15 @@ RUN apt-get install -y ./google-chrome-stable_current_amd64.deb
 RUN rm google-chrome-stable_current_amd64.deb
 
 # 目前用的是puppeteer-core包。如果项目用的是puppeteer包，请取消下面注释。
-# ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+# 装包
+WORKDIR /app
 # 复制文件到镜像的app目录下
-COPY package.json /app/
+COPY /DB /app/
+COPY /Uploader /app/
+COPY app.py /app/
+COPY requirements.txt /app/
 # 如果是国内就设置镜像
 # RUN npm set registry http://registry.npm.taobao.org/
 RUN npm install
-COPY index.js /app/
-# 装包
-WORKDIR /app
 ENTRYPOINT node index.js

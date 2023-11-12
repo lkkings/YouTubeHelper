@@ -1,0 +1,5 @@
+[2023-11-12 12:55:33,670] - Log.py] - INFO: Windows
+[2023-11-12 12:55:33,673] - Log.py] - INFO: [  配置  ]:读取本地配置完成!
+[2023-11-12 12:55:35,634] - Log.py] - INFO: YouTube上传器已连接: Address(host='127.0.0.1', port=63803)
+[2023-11-12 12:55:42,505] - Log.py] - ERROR: {'action': 'error', 'type': 1, 'message': 'cookie异常或过期，请重新登入'}
+[2023-11-12 12:56:39,091] - Log.py] - INFO: YouTube上传器已连接: Address(host='127.0.0.1', port=63862)
