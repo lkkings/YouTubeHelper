@@ -193,10 +193,14 @@ async def downloader_handler():
             async with auth_down:
                 await auth_down.wait()
             Util.progress.print("验证成功")
-        while not cmd.config_dict["timer"]:
+        profile = Util.Profile(cmd)
+        await profile.get_Profile()
+        timer = int(cmd.config_dict["timer"])
+        while timer:
+            await Util.asyncio.sleep(timer)
             profile = Util.Profile(cmd)
             await profile.get_Profile()
-            await Util.asyncio.sleep(cmd.config_dict["timer"])
+
 
 
 if __name__ == '__main__':
