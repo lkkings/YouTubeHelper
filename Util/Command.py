@@ -38,6 +38,8 @@ class Command:
                             help='为用户主页链接，支持长短链', required=False)
         parser.add_argument('--port', '-p', type=int,
                             help='资源服务器启动端口，默认8000',default=8000)
+        parser.add_argument('--timer', '-t', type=int,
+                            help='定时器，默认不开启', default=0)
         parser.add_argument('--save', '-s', type=str, help='视频保存目录，非必要参数， 默认Download', default='Download')
         parser.add_argument('--del', '-d', type=str, help='上传成功后是否删除， 默认yes 可选no', default='yes')
         parser.add_argument('--uploader', type=str, help="是否启动YouTube上传器， 默认yes 可选no", default='yes')

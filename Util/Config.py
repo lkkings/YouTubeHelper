@@ -14,7 +14,8 @@ class Config:
             'del': 'yes',
             'cover': 'yes',
             'desc': 'yes',
-            'port': '8000',
+            'port': 8765,
+            'timer': 0,
             'path': 'Download',
             'mode': 'post',
             'naming': '{create}_{desc}',
@@ -54,6 +55,9 @@ class Config:
                 self.cf['port'] = self.default['port']
                 self.cf.comments['port'] = ['',
                                                 '静态资源服务器地址端口']
+                self.cf['timer'] = self.default['timer']
+                self.cf.comments['timer'] = ['',
+                                            '定时器，定时爬取上传']
                 self.cf['del'] = self.default['del']
                 self.cf.comments['del'] = ['',
                                            '上传成功后是否删除(yes|no)']
@@ -242,7 +246,7 @@ def validate_config(config):
     if rule != 'now' and '[' not in rule:
         errors.append('[  配置  ]:rule 应为 "now" 或使用"1[10:00]"来表示发布时间，如 "1[10:00] 2[22:00]"')
     # 验证 max_connections 和 max_tasks
-    for key in ['max_connections', 'max_tasks', 'port']:
+    for key in ['max_connections', 'max_tasks', 'port', 'timer']:
         value = str(config.get(key, ''))
         if not value.isdigit():
             errors.append(f'[  配置  ]:{key} 应该为数字')

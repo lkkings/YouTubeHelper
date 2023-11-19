@@ -147,14 +147,15 @@ async def listener_handler():
             continue
         directory_parts = message['desc_path'].split(Util.os.path.sep)
         rootUrl = f'{directory_parts[-3]}/{directory_parts[-2]}/{directory_parts[-1]}'
-        video_path = f'{rootUrl}/{message["video_name"]}.mp4'
-        pic_path = f'{rootUrl}/{message["cover_name"]}.png'
-        video_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(video_path)}'
-        pic_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(pic_path)}'
         meta = {}
         meta = work_processing(meta, message)
+        video_path = f'{rootUrl}/{message["video_name"]}'
+        video_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(video_path)}'
         meta['videoFile'] = video_url
-        meta['videoPic'] = pic_url
+        if message["cover_name"]:
+            pic_path = f'{rootUrl}/{message["cover_name"]}'
+            pic_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(pic_path)}'
+            meta['videoPic'] = pic_url
         meta['sec_uid'] = message['sec_uid']
         meta['name'] = name
         meta['type'] = message['type']
@@ -169,7 +170,6 @@ async def listener_handler():
                 meta['schedule'] = f'{str(date)} {target_time}'
             else:
                 meta['schedule'] = 'now'
-        meta['schedule'] = '2023/11/12 09:00'
         await uploader.send_json({"action": "upload", "meta": meta})
         # 等待上一个视频上传完
         async with upload_down:
@@ -193,8 +193,10 @@ async def downloader_handler():
             async with auth_down:
                 await auth_down.wait()
             Util.progress.print("验证成功")
-        profile = Util.Profile(cmd)
-        await profile.get_Profile()
+        while not cmd.config_dict["timer"]:
+            profile = Util.Profile(cmd)
+            await profile.get_Profile()
+            await Util.asyncio.sleep(cmd.config_dict["timer"])
 
 
 if __name__ == '__main__':

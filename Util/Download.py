@@ -210,8 +210,8 @@ class Download:
                 try:
                     video_url = aweme['video_url_list'][0]
                     video_name = f"{await format_file_name(aweme, self.config['naming'])}_video"
-                    aweme['video_name'] = video_name
                     await initiate_download("视频", video_url, ".mp4", desc_path, video_name)
+                    aweme['video_name'] = video_name+".mp4"
                 except Exception:
                     Util.progress.console.print("[  失败  ]:该视频不可用，无法下载。")
                     Util.log.warning(f"[  失败  ]:该视频不可用，无法下载。{aweme} 异常：{Exception}")
@@ -221,8 +221,8 @@ class Download:
                     try:
                         cover_url = aweme['dynamic_cover'][0]
                         cover_name = f"{await format_file_name(aweme, self.config['naming'])}_cover"
-                        aweme['cover_name'] = cover_name
                         await initiate_download("封面", cover_url, ".png", desc_path, cover_name)
+                        aweme['cover_name'] = cover_name + '.png'
                     except Exception:
                         Util.progress.console.print(f"[  失败  ]:该视频封面不可用，无法下载。")
                         Util.log.warning(f"[  失败  ]:该视频封面不可用，无法下载。{aweme} 异常：{Exception}")
