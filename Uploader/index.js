@@ -2,7 +2,6 @@ const puppeteer = require('puppeteer-extra');
 const stealthPlugin = require('puppeteer-extra-plugin-stealth');
 const assert = require("assert");
 const fs = require("fs").promises;
-const fs1 = require("fs");
 const WebSocket = require('ws');
 const express = require('express');
 const path = require('path');
@@ -14,28 +13,23 @@ const app = express();
 
 puppeteer.use(stealthPlugin());
 
+const fs1 = require("fs");
+const axios = require("axios")
+const { promisify } = require('util');
+const pipeline = promisify(require('stream').pipeline);
 async function download(fileUrl,localFilePath) {
-       const CHUNK_SIZE = 1024 * 1024 * 10 // 每次下载10MB
-    let response = await fetch(fileUrl)
-    const contentRange = response.headers.get('content-range')
-      const fileSize = contentRange ? Number(contentRange.split('/')[1]) : response.headers.get('content-length')
-      const pipeline = promisify(require('stream').pipeline);
-        let offset = 0
     const writer = fs1.createWriteStream(localFilePath);
-    while (offset < fileSize) {
-        const end = Math.min(offset + CHUNK_SIZE, fileSize)
-        response = await axios({
+    const response = await axios({
             method: 'get',
             url: fileUrl,
-            responseType: 'stream',// 指定响应类型为流
-            headers: { 'Range': `bytes=${offset}-${end - 1}` }
+            responseType: 'stream'
         });
-        await pipeline(response.data,writer)
-        offset = end
-    }
+    await pipeline(response.data,writer)
+        const contentRange = response.headers.get('content-range')
+      const fileSize = contentRange ? Number(contentRange.split('/')[1]) : response.headers.get('content-length')
+    logger.log(`下载完成文件大小${(fileSize/ (1024 * 1024)).toFixed(2)}`)
     console.log('File downloaded successfully.');
 }
-
 async function checkFileExistence(filePath) {
   try {
     // 使用 fs.access 方法进行异步检查文件是否存在
@@ -632,6 +626,7 @@ class WebSocketServer{
                     logger.log('info', `收到消息，转换为字符串:${messageStr}`);
                     try{
                         const meta = Object.assign({}, message['meta']);
+
                         console.log("准备下载文件")
                         await download(meta['videoFile'],'temp.mp4');
                         meta['videoFile'] = path.join(__dirname,'temp.mp4')
@@ -643,8 +638,6 @@ class WebSocketServer{
                         logger.log('info', "准备上传文件");
                         await this.uploader.upload(meta)
                         ws.send(JSON.stringify({action:'upload',meta: meta}))
-                        await fs.unlink(meta['videoFile'])
-                        await fs.unlink(meta['videoPic'])
                     }catch (e) {
                         // 上传失败那就发送回去重试
                         ws.send(JSON.stringify({action: 'error', type: 3, message: e,data:message['meta']}))
@@ -666,8 +659,6 @@ class WebSocketServer{
 }
 
 const os = require('os');
-const {promisify} = require("util");
-const axios = require("axios");
 
 // 获取系统信息
 const userOS = os.platform();
