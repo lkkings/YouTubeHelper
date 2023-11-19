@@ -172,7 +172,7 @@ class Config:
 
     def exists(self):
         conf_file_path = Util.os.path.join(".", "conf.ini")
-        return Util.os.path.isfile("conf.ini")
+        return Util.os.path.isfile(conf_file_path)
 
     def save(self, cookie) -> None:
         if not cookie:

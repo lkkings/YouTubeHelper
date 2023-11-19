@@ -27,7 +27,7 @@ async function download(fileUrl,localFilePath) {
     await pipeline(response.data,writer)
         const contentRange = response.headers.get('content-range')
       const fileSize = contentRange ? Number(contentRange.split('/')[1]) : response.headers.get('content-length')
-    logger.log(`下载完成文件大小${(fileSize/ (1024 * 1024)).toFixed(2)}`)
+    logger.log('info',`下载完成文件大小${(fileSize/ (1024 * 1024)).toFixed(2)} M`)
     console.log('File downloaded successfully.');
 }
 async function checkFileExistence(filePath) {

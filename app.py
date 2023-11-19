@@ -140,7 +140,7 @@ async def listener_handler():
         if DB.uploadMapper.existRecord(message['sec_uid'], name):
             Util.progress.print(f"{name}已上传")
             continue
-        video_path = Util.os.path.join(message['desc_path'], message['video_name'] + '.mp4')
+        video_path = Util.os.path.join(message['desc_path'], message['video_name'])
         if not Util.os.path.exists(video_path):
             Util.progress.print(f"文件{video_path}缺失,准备删除文件夹{message['desc_path']}")
             Util.shutil.rmtree(message['desc_path'])
