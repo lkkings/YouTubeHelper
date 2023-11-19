@@ -15,10 +15,11 @@ RUN rm google-chrome-stable_current_amd64.deb
 
 # 复制文件到镜像的app目录下
 COPY package.json /app/
-# 如果是国内就设置镜像
-# RUN npm set registry http://registry.npm.taobao.org/
-RUN npm install
+
 COPY index.js /app/
 # 装包
 WORKDIR /app
+# 如果是国内就设置镜像
+# RUN npm set registry http://registry.npm.taobao.org/
+RUN npm install
 ENTRYPOINT node index.js
