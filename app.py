@@ -2,6 +2,7 @@ import uvicorn
 from fastapi import FastAPI, WebSocket
 from starlette.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+import signal
 
 import DB
 import Util
@@ -19,8 +20,17 @@ async def lifespan(app: FastAPI):
     loop = Util.asyncio.get_running_loop()
     upload_down = Util.asyncio.Condition()
     auth_down = Util.asyncio.Condition()
-    loop.create_task(downloader_handler())
-    loop.create_task(listener_handler())
+    task1 = loop.create_task(downloader_handler())
+    task2 = loop.create_task(listener_handler())
+    # 设置中断信号
+    def handle_sigint():
+        Util.done_event.set()
+        task1.cancel()
+        task2.cancel()
+
+
+    bound_handle_sigint = lambda signum, frame: handle_sigint()
+    signal.signal(signal.SIGINT, bound_handle_sigint)
     yield
 
 
@@ -136,10 +146,6 @@ async def listener_handler():
         await auth_down.wait()
     while not Util.done_event.is_set():
         message = await Util.queue.get()
-        name = message['nickname'] + ':' + message['desc']
-        if DB.uploadMapper.existRecord(message['sec_uid'], name):
-            Util.progress.print(f"{name}已上传")
-            continue
         video_path = Util.os.path.join(message['desc_path'], message['video_name'])
         if not Util.os.path.exists(video_path):
             Util.progress.print(f"文件{video_path}缺失,准备删除文件夹{message['desc_path']}")
@@ -157,7 +163,7 @@ async def listener_handler():
             pic_url = f'http://127.0.0.1:{cmd.config_dict["port"]}/{Util.parse.quote(pic_path)}'
             meta['videoPic'] = pic_url
         meta['sec_uid'] = message['sec_uid']
-        meta['name'] = name
+        meta['name'] = message['name']
         meta['type'] = message['type']
         rule = cmd.config_dict['rule']
         if rule == 'now':

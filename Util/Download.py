@@ -1,10 +1,19 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-
+import DB
 import Util
 
 XB = Util.XBogus()
 URLS = Util.Urls()
+
+
+def copy_large_file(source_file, destination_file, chunk_size=8192):
+    with open(source_file, "rb") as src_file, open(destination_file, "ab") as dest_file:
+        while True:
+            chunk = src_file.read(chunk_size)
+            if not chunk:
+                break
+            dest_file.write(chunk)
 
 
 class Download:
@@ -35,6 +44,25 @@ class Download:
         else:
             return filename
 
+    async def _download_part(self, task_id, session, url, start, end, file_path):
+        if Util.os.path.exists(file_path):
+            # 189262416
+            file_size = Util.os.path.getsize(file_path)
+            start += file_size
+            Util.progress.update(task_id, advance=file_size, refresh=True)
+            if start - 1 == end:
+                return
+        headers = {'Range': f'bytes={start}-{end}'}
+        async with session.get(url, headers=headers) as response:
+            CHUNK_SIZE = 10240
+            with open(file_path, 'ab') as file:
+                while not Util.done_event.is_set():
+                    chunk = await response.content.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    file.write(chunk)
+                    Util.progress.update(task_id, advance=len(chunk), refresh=True)
+
     async def download_file(self, task_id: Util.TaskID, url: str, path: str) -> None:
         """
         下载指定 URL 的文件并将其保存在本地路径。
@@ -46,24 +74,37 @@ class Download:
         """
         try:
             async with self.semaphore:
-                connector = Util.aiohttp.TCPConnector(limit=int(self.config['max_connections']))
+                max_connections = int(self.config['max_connections'])
+                connector = Util.aiohttp.TCPConnector(limit=max_connections)
 
                 async with Util.aiohttp.ClientSession(connector=connector) as session:
                     async with session.get(url) as response:
                         if response.status != 200:
                             raise ValueError(f"HTTP连接意外: {response.status}")
-
-                        Util.progress.update(task_id, total=int(response.headers["Content-length"]))
-                        with open(path, "wb") as dest_file:
-                            Util.progress.start_task(task_id)
-                            chunk_size = 32768
-                            while not Util.done_event.is_set():
-                                chunk = await response.content.read(chunk_size)
-                                if not chunk:
-                                    break
-                                dest_file.write(chunk)
-                                Util.progress.update(task_id, advance=len(chunk), refresh=True)
-
+                            # 开始切割
+                        total_size = int(response.headers["Content-length"])
+                        parts_size = Util.math.ceil(total_size / max_connections)
+                        Util.progress.update(task_id, total=total_size)
+                        Util.progress.start_task(task_id)
+                        tasks = []
+                        start = 0
+                        for i in range(max_connections):
+                            # 0 - 3664921
+                            end = start + parts_size
+                            if end > total_size - 1:
+                                end = total_size - 1
+                            part_file_path = f"{path}.part{i + 1}"
+                            task = Util.asyncio.create_task(self._download_part(task_id,
+                                                                                session, url, start, end,
+                                                                                part_file_path))
+                            tasks.append(task)
+                            start = end + 1
+                        await Util.asyncio.gather(*tasks)
+                        # 合并文件部分
+                        for i in range(max_connections):
+                            part_file_path = f"{path}.part{i + 1}"
+                            copy_large_file(part_file_path, path)
+                            Util.os.remove(part_file_path)
         except Util.aiohttp.ClientError as e:
             Util.progress.console.print(f"[  失败  ]：网络连接出错。异常：{e}")
         except ValueError as e:
@@ -172,7 +213,6 @@ class Download:
 
         # 用于存储作者本页所有的下载任务, 最后会等待本页所有作品下载完成才结束本函数
         download_tasks = []
-
         # 作品发布时间区间
         should_check_interval = False
         start_date, end_date = (None, None)
@@ -184,6 +224,11 @@ class Download:
 
         # 遍历aweme_data中的每一个aweme字典
         for aweme in aweme_data:
+            name = aweme['nickname'] + ':' + aweme['desc']
+            if DB.uploadMapper.existRecord(aweme['sec_uid'], name):
+                Util.progress.print(f"{name}已上传")
+                continue
+            aweme["name"] = name
             aweme_time = Util.time.strptime(aweme['create_time'], '%Y-%m-%d %H.%M.%S')
             # 如果设置了日期区间并且作品的发布日期不在指定的日期范围内，则跳过
             if should_check_interval:
@@ -211,7 +256,7 @@ class Download:
                     video_url = aweme['video_url_list'][0]
                     video_name = f"{await format_file_name(aweme, self.config['naming'])}_video"
                     await initiate_download("视频", video_url, ".mp4", desc_path, video_name)
-                    aweme['video_name'] = video_name+".mp4"
+                    aweme['video_name'] = video_name + ".mp4"
                 except Exception:
                     Util.progress.console.print("[  失败  ]:该视频不可用，无法下载。")
                     Util.log.warning(f"[  失败  ]:该视频不可用，无法下载。{aweme} 异常：{Exception}")
