@@ -7,13 +7,34 @@ XB = Util.XBogus()
 URLS = Util.Urls()
 
 
-def copy_large_file(source_file, destination_file, chunk_size=8192):
+def copy_large_file(source_file, destination_file, chunk_size=20 * 1024):
     with open(source_file, "rb") as src_file, open(destination_file, "ab") as dest_file:
         while True:
             chunk = src_file.read(chunk_size)
             if not chunk:
                 break
             dest_file.write(chunk)
+
+
+async def _download_part(task_id, session, url, start, end, file_path):
+    if Util.os.path.exists(file_path):
+        # 189262416
+        file_size = Util.os.path.getsize(file_path)
+        start += file_size
+        Util.progress.update(task_id, advance=file_size, refresh=True)
+        if start - 1 == end:
+            return
+    headers = {'Range': f'bytes={start}-{end}'}
+    async with session.get(url, headers=headers) as response:
+        CHUNK_SIZE = 10240
+        with open(file_path, 'ab') as file:
+            while not Util.done_event.is_set():
+                chunk = await response.content.read(CHUNK_SIZE)
+                if not chunk or start - 1 == end:
+                    break
+                file.write(chunk)
+                start += len(chunk)
+                Util.progress.update(task_id, advance=len(chunk), refresh=True)
 
 
 class Download:
@@ -44,26 +65,7 @@ class Download:
         else:
             return filename
 
-    async def _download_part(self, task_id, session, url, start, end, file_path):
-        if Util.os.path.exists(file_path):
-            # 189262416
-            file_size = Util.os.path.getsize(file_path)
-            start += file_size
-            Util.progress.update(task_id, advance=file_size, refresh=True)
-            if start - 1 == end:
-                return
-        headers = {'Range': f'bytes={start}-{end}'}
-        async with session.get(url, headers=headers) as response:
-            CHUNK_SIZE = 10240
-            with open(file_path, 'ab') as file:
-                while not Util.done_event.is_set():
-                    chunk = await response.content.read(CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    file.write(chunk)
-                    Util.progress.update(task_id, advance=len(chunk), refresh=True)
-
-    async def download_file(self, task_id: Util.TaskID, url: str, path: str) -> None:
+    async def download_file(self, task_id: Util.TaskID, url: str, path: str, i=0) -> None:
         """
         下载指定 URL 的文件并将其保存在本地路径。
 
@@ -71,12 +73,14 @@ class Download:
             task_id (TaskID): 下载任务的唯一标识。
             url (str): 要下载的文件的 URL。
             path (str): 文件保存的本地路径.
+            i (int): 重试次数
         """
         try:
             async with self.semaphore:
+                if i > 10:
+                    return
                 max_connections = int(self.config['max_connections'])
                 connector = Util.aiohttp.TCPConnector(limit=max_connections)
-
                 async with Util.aiohttp.ClientSession(connector=connector) as session:
                     async with session.get(url) as response:
                         if response.status != 200:
@@ -90,13 +94,11 @@ class Download:
                         start = 0
                         for i in range(max_connections):
                             # 0 - 3664921
-                            end = start + parts_size
-                            if end > total_size - 1:
-                                end = total_size - 1
+                            end = min(start + parts_size - 1, total_size - 1)
                             part_file_path = f"{path}.part{i + 1}"
-                            task = Util.asyncio.create_task(self._download_part(task_id,
-                                                                                session, url, start, end,
-                                                                                part_file_path))
+                            task = Util.asyncio.create_task(_download_part(task_id,
+                                                                           session, url, start, end,
+                                                                           part_file_path))
                             tasks.append(task)
                             start = end + 1
                         await Util.asyncio.gather(*tasks)
@@ -112,7 +114,11 @@ class Download:
         except FileNotFoundError:
             Util.progress.print(f"[  失败  ]：文件路径 {path} 无效或无法访问。")
         except Exception as e:
+            for task in tasks:
+                task.cancel()
+            i += 1
             Util.progress.print(f"[  失败  ]：下载失败，未知错误。异常：{e}")
+            await self.download_file(task_id, url, path, i)
 
     async def AwemeDownload(self, aweme_data):
         """
@@ -169,15 +175,14 @@ class Download:
                                                  filename=self.trim_filename(file_path, 50),
                                                  total=1, completed=1)
                 Util.progress.update(task_id, completed=1)
-            else:
-                task_id = Util.progress.add_task(description=f"[  {file_type}  ]:",
-                                                 filename=self.trim_filename(file_path, 50),
-                                                 start=False)
-                Util.progress.start_task(task_id)
-                with open(full_path, 'w', encoding='utf-8') as desc_file:
-                    desc_file.write(desc_content)
-                # 更新进度条以显示任务完成
-                Util.progress.update(task_id, completed=100)
+            task_id = Util.progress.add_task(description=f"[  {file_type}  ]:",
+                                             filename=self.trim_filename(file_path, 50),
+                                             start=False)
+            Util.progress.start_task(task_id)
+            with open(full_path, 'w', encoding='utf-8') as desc_file:
+                desc_file.write(desc_content)
+            # 更新进度条以显示任务完成
+            Util.progress.update(task_id, completed=100)
 
         async def initiate_download(file_type: str, file_url: str, file_suffix: str, base_path: str,
                                     file_name: str) -> None:
@@ -202,14 +207,13 @@ class Download:
                                                  filename=self.trim_filename(file_path, 50),
                                                  total=1, completed=1)
                 Util.progress.update(task_id, completed=1)
-            else:
-                task_id = Util.progress.add_task(description=f"[  {file_type}  ]:",
-                                                 filename=self.trim_filename(file_path, 50),
-                                                 start=False)
-                download_task = Util.asyncio.create_task(self.download_file(task_id, file_url, full_path))
-                download_tasks.append(download_task)
-                # 这将使事件循环继续进行，允许任务立即开始
-                await Util.asyncio.sleep(0)
+            task_id = Util.progress.add_task(description=f"[  {file_type}  ]:",
+                                             filename=self.trim_filename(file_path, 50),
+                                             start=False)
+            download_task = Util.asyncio.create_task(self.download_file(task_id, file_url, full_path))
+            download_tasks.append(download_task)
+            # 这将使事件循环继续进行，允许任务立即开始
+            await Util.asyncio.sleep(0)
 
         # 用于存储作者本页所有的下载任务, 最后会等待本页所有作品下载完成才结束本函数
         download_tasks = []

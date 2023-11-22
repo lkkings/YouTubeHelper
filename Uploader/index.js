@@ -25,10 +25,11 @@ async function download(fileUrl,localFilePath) {
             responseType: 'stream'
         });
     await pipeline(response.data,writer)
-        const contentRange = response.headers.get('content-range')
-      const fileSize = contentRange ? Number(contentRange.split('/')[1]) : response.headers.get('content-length')
+    const contentRange = response.headers.get('content-range')
+    const fileSize = contentRange ? Number(contentRange.split('/')[1]) : response.headers.get('content-length')
     logger.log('info',`下载完成文件大小${(fileSize/ (1024 * 1024)).toFixed(2)} M`)
     console.log('File downloaded successfully.');
+    writer.close()
 }
 async function checkFileExistence(filePath) {
   try {
@@ -266,8 +267,8 @@ class Options{
 
 
     async click(selector){
-        await this.page.waitForSelector(selector,{ visible: true, clickable: true });
-        await this.page.click(selector)
+        const ele = await this.page.waitForSelector(selector,{ visible: true, clickable: true });
+        await ele.click(selector)
         await sleep(Constants.USER_WAITING)
     }
 
@@ -369,7 +370,7 @@ class YoutubeUploader{
             const flag = value === "no"? Constants.NOT_MADE_FOR_KIDS_LABEL_XPATH:Constants.MADE_FOR_KIDS_LABEL_XPATH;
             await this.options.xclick(flag)
             await this.options.click(Constants.MORE_BUTTON);
-             logger.log('info', "是否儿童设置完成");
+            logger.log('info', "是否儿童设置完成");
         },
         SET_TAGS: async (value)=>{
             await this.options.xwrite(Constants.TAGS_INPUT_XPATH,value.join(","))
@@ -642,7 +643,8 @@ class WebSocketServer{
                         // 上传失败那就发送回去重试
                         ws.send(JSON.stringify({action: 'error', type: 3, message: e,data:message['meta']}))
                         logger.log('error', `上传异常:${e}`);
-                        await sleep(10000)
+                        await this.uploader.page.screenshot({ path: 'error.png' });
+                        await sleep(10000);
                     }
                     break
               }
@@ -671,8 +673,9 @@ if (userOS.toLowerCase().includes('win')) {
 }
 if(process.argv[3]) executablePath = process.argv[2]
 
-app.listen(process.argv[2]?process.argv[2]:8080, () => {
-     console.log(`static sources Server is running on port 8080`);
+const port = process.argv[2]?process.argv[2]:8080
+app.listen(port, () => {
+     console.log(`Server is running on port ${port}`)
      // executablePath: 'google-chrome-stable'
     YoutubeUploader.createAsyncInstance({headless:'new',executablePath:executablePath,
 timeout: 60000,args:['--disable-web-security','--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,960','--lang=zh-CN']})
@@ -684,7 +687,10 @@ timeout: 60000,args:['--disable-web-security','--no-sandbox', '--disable-setuid-
         });
         app.get('/log',(rep,res)=>{
             res.sendFile(path.join(__dirname,'app.log'))
-        })
+        });
+         app.get('/error',(rep,res)=>{
+            res.sendFile(path.join(__dirname,'error.png'))
+        });
         const wsurl = "ws://127.0.0.1:8765";
         const interval = 3000;
         const server = new WebSocketServer(uploader,wsurl,interval);
