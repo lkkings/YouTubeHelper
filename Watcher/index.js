@@ -383,40 +383,55 @@ app.listen(8080, async () => {
     const accounts = []
     const videos = []
     const data = await fs.readFile(path.join(__dirname,'account.txt'), 'utf8')
-    const lines = data.replace(/\n/g, '').split('\r'); // 按行分割内容
+    const lines = data.split('&'); // 按行分割内容
     lines.forEach(line => {
             const [username, password] = line.split('|'); // 按 | 分割用户名和密码
             accounts.push({username,password})
     });
     const data2 = await fs.readFile(path.join(__dirname,'video.txt'), 'utf8')
-    const lines2 = data2.replace(/\n/g, '').split('\r'); // 按行分割内容
+    const lines2 = data2.split('|'); // 按行分割内容
     lines2.forEach(line => {
             videos.push(line)
     });
-    logger.info(`videos: ${videos}`)
-    console.log(`account: ${JSON.stringify(accounts)}`)
+
+    logger.info(`videos: ${videos}`);
+    console.log(`account: ${JSON.stringify(accounts)}`);
+    let videoCopy = [];
     for(let i=0;i<accounts.length;i++)
     setTimeout(async ()=>{
         const watcher = await createWatcher();
         watchers.push(watcher)
         const {username,password} = accounts[i]
+        //登入
         await watcher.login(username,password)
-        let isVideoEnded;
         while (true){
-            for (const video of videos) {
-                await watcher.watch({video:videos[0]});
-                let pageTitle = await watcher.page.title();
-                logger.info(`${i}正在播放${video}`)
-                let isVideoEnded;
+            if(videoCopy.length === 0){
+                videoCopy = videoCopy.concat(videos);
+            }
+            const video = videoCopy.pop()
+            await watcher.watch({video:video});
+            let pageTitle = await watcher.page.title();
+            logger.info(`${username}正在播放${pageTitle}`);
+            let isVideoEnded;
+            if(video.includes('list')){
                 do {
                     // 监视视频状态
-                    isVideoEnded = await watcher.page.title();
-                    await sleep(Config.USER_WAITING);
-                }while (isVideoEnded === pageTitle)
-                logger.info(`${i}${video}播放完成`)
+                    let title = await watcher.page.title();
+                    if (title !== pageTitle){
+                        logger.info(`${username}播放${pageTitle}完成`);
+                        pageTitle = title;
+                    }
+                    isVideoEnded = await watcher.options.xfind(Constants.PLAY_DOWN_XPATH,Config.USER_WAITING);
+                }while (!isVideoEnded);
+                logger.info(`${username}播放列表完成`);
+            }else {
+                do {
+                    // 监视视频状态
+                    isVideoEnded = await watcher.options.xfind(Constants.PLAY_DOWN_XPATH,Config.USER_WAITING);
+                }while (!isVideoEnded);
+                logger.info(`${username}播放${pageTitle}完成`);
             }
         }
-
     },0)
     app.get('/look/:id',async (req, res) => {
         const id = req.params.id;
